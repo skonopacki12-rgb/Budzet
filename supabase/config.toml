@@ -1,0 +1,18 @@
+project_id = "budzet"
+
+[db]
+port = 54322
+
+[api]
+port = 54321
+
+[studio]
+port = 54323
+
+[auth]
+enable_signup = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+
+[auth.email]
+enable_confirmations = false
