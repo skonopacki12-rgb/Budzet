@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Category, Subcategory } from "@/lib/database.types";
+import type { Category, Subcategory } from "@/db/schema";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -19,7 +19,7 @@ export function ExpenseForm({
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
 
   const subcategoryOptions = useMemo(
-    () => subcategories.filter((sub) => sub.category_id === categoryId),
+    () => subcategories.filter((sub) => sub.categoryId === categoryId),
     [subcategories, categoryId],
   );
 

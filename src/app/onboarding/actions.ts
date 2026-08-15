@@ -1,68 +1,52 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { eq } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { assertHouseholdMember } from "@/lib/household";
+import { households, householdMembers, householdInvites } from "@/db/schema";
 
 export async function createHousehold(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim() || "Nasz budżet";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { data: household, error } = await supabase
-    .from("households")
-    .insert({ name })
-    .select("id")
-    .single();
+  const db = await getDb();
+  const household = await db.insert(households).values({ name }).returning({ id: households.id }).get();
 
-  if (error || !household) {
-    throw new Error(error?.message ?? "Nie udało się utworzyć gospodarstwa domowego.");
-  }
-
-  const { error: memberError } = await supabase
-    .from("household_members")
-    .insert({ household_id: household.id, user_id: user.id, role: "owner" });
-
-  if (memberError) {
-    throw new Error(memberError.message);
-  }
+  await db.insert(householdMembers).values({ householdId: household.id, userId: user.id, role: "owner" });
 
   redirect("/");
 }
 
 export async function acceptInvite(inviteId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { data: invite, error: inviteError } = await supabase
-    .from("household_invites")
-    .select("id, household_id, email, status")
-    .eq("id", inviteId)
-    .single();
+  const db = await getDb();
+  const invite = await db
+    .select({
+      id: householdInvites.id,
+      householdId: householdInvites.householdId,
+      email: householdInvites.email,
+      status: householdInvites.status,
+    })
+    .from(householdInvites)
+    .where(eq(householdInvites.id, inviteId))
+    .get();
 
-  if (inviteError || !invite) {
+  if (!invite) {
     throw new Error("Nie znaleziono zaproszenia.");
   }
 
-  if (invite.status !== "pending" || invite.email.toLowerCase() !== (user.email ?? "").toLowerCase()) {
+  if (invite.status !== "pending" || invite.email.toLowerCase() !== user.email.toLowerCase()) {
     throw new Error("To zaproszenie nie jest dla Ciebie dostępne.");
   }
 
-  const { error: memberError } = await supabase
-    .from("household_members")
-    .insert({ household_id: invite.household_id, user_id: user.id, role: "member" });
-
-  if (memberError) {
-    throw new Error(memberError.message);
-  }
-
-  await supabase.from("household_invites").update({ status: "accepted" }).eq("id", invite.id);
+  await db.insert(householdMembers).values({ householdId: invite.householdId, userId: user.id, role: "member" });
+  await db.update(householdInvites).set({ status: "accepted" }).where(eq(householdInvites.id, invite.id));
 
   redirect("/");
 }
@@ -71,19 +55,16 @@ export async function invitePartner(householdId: string, formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) return;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { error } = await supabase
-    .from("household_invites")
-    .insert({ household_id: householdId, email, invited_by: user.id });
+  const db = await getDb();
+  // Household RLS is gone now that we're off Postgres/Supabase, so this
+  // membership check is what stops a crafted request from inviting someone
+  // into a household the caller doesn't belong to.
+  await assertHouseholdMember(db, user.id, householdId);
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  await db.insert(householdInvites).values({ householdId, email, invitedBy: user.id });
 
   redirect("/onboarding?invited=1");
 }

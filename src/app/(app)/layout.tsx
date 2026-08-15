@@ -1,18 +1,16 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
 import { BottomNav } from "@/components/BottomNav";
 import { InstallHint } from "@/components/InstallHint";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const household = await getActiveHousehold(supabase, user.id);
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
   if (!household) redirect("/onboarding");
 
   return (

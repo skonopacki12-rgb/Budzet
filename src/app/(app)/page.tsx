@@ -1,48 +1,59 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
 import { monthPeriod, formatPln } from "@/lib/date";
+import { categories, monthlyBudgets, transactions } from "@/db/schema";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  const household = await getActiveHousehold(supabase, user.id);
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
   if (!household) return null;
 
   const { periodStart, periodEnd, daysInMonth, dayOfMonth } = monthPeriod();
 
-  const [{ data: monthlyBudget }, { data: transactions }, { data: categories }] = await Promise.all([
-    supabase
-      .from("monthly_budgets")
-      .select("limit_amount")
-      .eq("household_id", household.id)
-      .eq("period", periodStart)
-      .maybeSingle(),
-    supabase
-      .from("transactions")
-      .select("id, amount, category_id, shop, note, occurred_on, created_at")
-      .eq("household_id", household.id)
-      .eq("type", "expense")
-      .gte("occurred_on", periodStart)
-      .lte("occurred_on", periodEnd)
-      .order("occurred_on", { ascending: false })
-      .order("created_at", { ascending: false }),
-    supabase.from("categories").select("*").order("sort_order"),
+  const [monthlyBudget, txRows, categoryRows] = await Promise.all([
+    db
+      .select({ limitAmount: monthlyBudgets.limitAmount })
+      .from(monthlyBudgets)
+      .where(and(eq(monthlyBudgets.householdId, household.id), eq(monthlyBudgets.period, periodStart)))
+      .get(),
+    db
+      .select({
+        id: transactions.id,
+        amount: transactions.amount,
+        categoryId: transactions.categoryId,
+        shop: transactions.shop,
+        occurredOn: transactions.occurredOn,
+        createdAt: transactions.createdAt,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.householdId, household.id),
+          eq(transactions.type, "expense"),
+          gte(transactions.occurredOn, periodStart),
+          lte(transactions.occurredOn, periodEnd),
+        ),
+      )
+      .orderBy(desc(transactions.occurredOn), desc(transactions.createdAt))
+      .all(),
+    db.select().from(categories).orderBy(asc(categories.sortOrder)).all(),
   ]);
 
-  const categoryById = new Map((categories ?? []).map((category) => [category.id, category]));
+  const categoryById = new Map(categoryRows.map((category) => [category.id, category]));
 
-  const totalSpent = (transactions ?? []).reduce((sum, transaction) => sum + Number(transaction.amount), 0);
-  const globalBudget = monthlyBudget?.limit_amount ?? null;
+  const totalSpent = txRows.reduce((sum, transaction) => sum + transaction.amount, 0);
+  const globalBudget = monthlyBudget?.limitAmount ?? null;
 
   const spentByCategory = new Map<string, number>();
-  for (const transaction of transactions ?? []) {
-    const key = transaction.category_id ?? "inne";
-    spentByCategory.set(key, (spentByCategory.get(key) ?? 0) + Number(transaction.amount));
+  for (const transaction of txRows) {
+    const key = transaction.categoryId ?? "inne";
+    spentByCategory.set(key, (spentByCategory.get(key) ?? 0) + transaction.amount);
   }
   const topCategories = [...spentByCategory.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -63,7 +74,7 @@ export default async function DashboardPage() {
           ? "bg-amber-500"
           : "bg-red-500";
 
-  const recent = (transactions ?? []).slice(0, 8);
+  const recent = txRows.slice(0, 8);
 
   return (
     <div className="flex flex-col gap-6 pt-2">
@@ -147,17 +158,17 @@ export default async function DashboardPage() {
         ) : (
           <ul className="flex flex-col divide-y divide-neutral-100">
             {recent.map((transaction) => {
-              const category = transaction.category_id ? categoryById.get(transaction.category_id) : undefined;
+              const category = transaction.categoryId ? categoryById.get(transaction.categoryId) : undefined;
               return (
                 <li key={transaction.id} className="flex items-center justify-between py-2.5 text-sm">
                   <div>
                     <p className="text-neutral-900">{transaction.shop || category?.name || "Wydatek"}</p>
                     <p className="text-xs text-neutral-400">
-                      {new Date(transaction.occurred_on).toLocaleDateString("pl-PL")}
+                      {new Date(transaction.occurredOn).toLocaleDateString("pl-PL")}
                       {category ? ` · ${category.name}` : ""}
                     </p>
                   </div>
-                  <span className="font-medium text-neutral-900">{formatPln(Number(transaction.amount))}</span>
+                  <span className="font-medium text-neutral-900">{formatPln(transaction.amount)}</span>
                 </li>
               );
             })}

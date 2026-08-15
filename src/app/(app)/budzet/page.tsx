@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { and, asc, eq, gte } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
 import { monthPeriod, formatPln } from "@/lib/date";
+import { budgets, categories, monthlyBudgets, transactions } from "@/db/schema";
 import { saveBudgets } from "./actions";
 
 export default async function BudgetPage({
@@ -10,45 +13,47 @@ export default async function BudgetPage({
   searchParams: Promise<{ saved?: string }>;
 }) {
   const { saved } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const household = await getActiveHousehold(supabase, user.id);
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
   if (!household) redirect("/onboarding");
 
   const { periodStart } = monthPeriod();
 
-  const [{ data: monthlyBudget }, { data: categoryBudgets }, { data: categories }, { data: transactions }] =
-    await Promise.all([
-      supabase
-        .from("monthly_budgets")
-        .select("limit_amount")
-        .eq("household_id", household.id)
-        .eq("period", periodStart)
-        .maybeSingle(),
-      supabase.from("budgets").select("category_id, limit_amount").eq("household_id", household.id).eq(
-        "period",
-        periodStart,
-      ),
-      supabase.from("categories").select("*").order("sort_order"),
-      supabase
-        .from("transactions")
-        .select("amount, category_id")
-        .eq("household_id", household.id)
-        .eq("type", "expense")
-        .gte("occurred_on", periodStart),
-    ]);
+  const [monthlyBudget, categoryBudgets, categoryRows, txRows] = await Promise.all([
+    db
+      .select({ limitAmount: monthlyBudgets.limitAmount })
+      .from(monthlyBudgets)
+      .where(and(eq(monthlyBudgets.householdId, household.id), eq(monthlyBudgets.period, periodStart)))
+      .get(),
+    db
+      .select({ categoryId: budgets.categoryId, limitAmount: budgets.limitAmount })
+      .from(budgets)
+      .where(and(eq(budgets.householdId, household.id), eq(budgets.period, periodStart)))
+      .all(),
+    db.select().from(categories).orderBy(asc(categories.sortOrder)).all(),
+    db
+      .select({ amount: transactions.amount, categoryId: transactions.categoryId })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.householdId, household.id),
+          eq(transactions.type, "expense"),
+          gte(transactions.occurredOn, periodStart),
+        ),
+      )
+      .all(),
+  ]);
 
-  const limitByCategory = new Map((categoryBudgets ?? []).map((b) => [b.category_id, b.limit_amount]));
+  const limitByCategory = new Map(categoryBudgets.map((b) => [b.categoryId, b.limitAmount]));
   const spentByCategory = new Map<string, number>();
-  for (const t of transactions ?? []) {
-    if (!t.category_id) continue;
-    spentByCategory.set(t.category_id, (spentByCategory.get(t.category_id) ?? 0) + Number(t.amount));
+  for (const t of txRows) {
+    if (!t.categoryId) continue;
+    spentByCategory.set(t.categoryId, (spentByCategory.get(t.categoryId) ?? 0) + t.amount);
   }
-  const totalSpent = (transactions ?? []).reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalSpent = txRows.reduce((sum, t) => sum + t.amount, 0);
 
   return (
     <div className="flex flex-col gap-6 pt-2">
@@ -65,7 +70,7 @@ export default async function BudgetPage({
             name="limit__global"
             type="text"
             inputMode="decimal"
-            defaultValue={monthlyBudget?.limit_amount ?? ""}
+            defaultValue={monthlyBudget?.limitAmount ?? ""}
             placeholder="np. 6000"
             className="rounded-lg border border-neutral-300 px-3 py-2.5 text-lg font-medium outline-none focus:border-neutral-900"
           />
@@ -75,7 +80,7 @@ export default async function BudgetPage({
         <div>
           <p className="mb-2 text-sm font-medium text-neutral-700">Limity per kategoria (opcjonalnie)</p>
           <div className="flex flex-col divide-y divide-neutral-100">
-            {(categories ?? []).map((category) => (
+            {categoryRows.map((category) => (
               <div key={category.id} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="flex items-center gap-2 text-sm text-neutral-800">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: category.color ?? "#a3a3a3" }} />

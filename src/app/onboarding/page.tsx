@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { and, desc, eq } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
+import { households, householdInvites } from "@/db/schema";
 import { acceptInvite, createHousehold, invitePartner } from "./actions";
 
 export default async function OnboardingPage({
@@ -10,27 +13,21 @@ export default async function OnboardingPage({
   searchParams: Promise<{ invited?: string }>;
 }) {
   const { invited } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  const household = await getActiveHousehold(supabase, user.id);
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
 
   if (!household) {
-    const { data: pendingInvites } = user.email
-      ? await supabase
-          .from("household_invites")
-          .select("id, email, households ( name )")
-          .eq("status", "pending")
-          .ilike("email", user.email)
-      : { data: null };
+    const pendingInvites = await db
+      .select({ id: householdInvites.id, householdName: households.name })
+      .from(householdInvites)
+      .innerJoin(households, eq(households.id, householdInvites.householdId))
+      .where(and(eq(householdInvites.status, "pending"), eq(householdInvites.email, user.email)))
+      .all();
 
-    if (pendingInvites && pendingInvites.length > 0) {
+    if (pendingInvites.length > 0) {
       return (
         <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6 py-12">
           <div>
@@ -40,26 +37,19 @@ export default async function OnboardingPage({
             </p>
           </div>
           <ul className="flex flex-col gap-3">
-            {pendingInvites.map((invite) => {
-              const householdInfo = Array.isArray(invite.households)
-                ? invite.households[0]
-                : invite.households;
-              return (
-                <li key={invite.id} className="rounded-xl border border-neutral-200 p-4">
-                  <p className="text-sm font-medium text-neutral-900">
-                    {householdInfo?.name ?? "Budżet domowy"}
-                  </p>
-                  <form action={acceptInvite.bind(null, invite.id)} className="mt-3">
-                    <button
-                      type="submit"
-                      className="w-full rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white"
-                    >
-                      Dołącz
-                    </button>
-                  </form>
-                </li>
-              );
-            })}
+            {pendingInvites.map((invite) => (
+              <li key={invite.id} className="rounded-xl border border-neutral-200 p-4">
+                <p className="text-sm font-medium text-neutral-900">{invite.householdName}</p>
+                <form action={acceptInvite.bind(null, invite.id)} className="mt-3">
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white"
+                  >
+                    Dołącz
+                  </button>
+                </form>
+              </li>
+            ))}
           </ul>
         </main>
       );
@@ -95,11 +85,12 @@ export default async function OnboardingPage({
 
   const inviteAction = invitePartner.bind(null, household.id);
 
-  const { data: invites } = await supabase
-    .from("household_invites")
-    .select("id, email, status")
-    .eq("household_id", household.id)
-    .order("created_at", { ascending: false });
+  const invites = await db
+    .select({ id: householdInvites.id, email: householdInvites.email, status: householdInvites.status })
+    .from(householdInvites)
+    .where(eq(householdInvites.householdId, household.id))
+    .orderBy(desc(householdInvites.createdAt))
+    .all();
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6 py-12">
@@ -135,7 +126,7 @@ export default async function OnboardingPage({
         </button>
       </form>
 
-      {invites && invites.length > 0 && (
+      {invites.length > 0 && (
         <ul className="flex flex-col gap-1 text-sm text-neutral-600">
           {invites.map((invite) => (
             <li key={invite.id} className="flex items-center justify-between">

@@ -2,18 +2,18 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
 import { monthPeriod } from "@/lib/date";
+import { budgets, monthlyBudgets } from "@/db/schema";
 
 export async function saveBudgets(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const household = await getActiveHousehold(supabase, user.id);
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
   if (!household) redirect("/onboarding");
 
   const { periodStart } = monthPeriod();
@@ -22,17 +22,17 @@ export async function saveBudgets(formData: FormData) {
   if (globalRaw) {
     const globalAmount = Number(globalRaw);
     if (Number.isFinite(globalAmount) && globalAmount >= 0) {
-      const { error } = await supabase
-        .from("monthly_budgets")
-        .upsert(
-          { household_id: household.id, period: periodStart, limit_amount: globalAmount },
-          { onConflict: "household_id,period" },
-        );
-      if (error) throw new Error(error.message);
+      await db
+        .insert(monthlyBudgets)
+        .values({ householdId: household.id, period: periodStart, limitAmount: globalAmount })
+        .onConflictDoUpdate({
+          target: [monthlyBudgets.householdId, monthlyBudgets.period],
+          set: { limitAmount: globalAmount },
+        });
     }
   }
 
-  const categoryRows: { household_id: string; period: string; category_id: string; limit_amount: number }[] = [];
+  const categoryRows: { householdId: string; period: string; categoryId: string; limitAmount: number }[] = [];
   for (const [key, value] of formData.entries()) {
     if (!key.startsWith("limit__cat__")) continue;
     const raw = String(value).replace(",", ".").trim();
@@ -41,18 +41,21 @@ export async function saveBudgets(formData: FormData) {
     if (!Number.isFinite(amount) || amount < 0) continue;
 
     categoryRows.push({
-      household_id: household.id,
+      householdId: household.id,
       period: periodStart,
-      category_id: key.replace("limit__cat__", ""),
-      limit_amount: amount,
+      categoryId: key.replace("limit__cat__", ""),
+      limitAmount: amount,
     });
   }
 
-  if (categoryRows.length > 0) {
-    const { error } = await supabase
-      .from("budgets")
-      .upsert(categoryRows, { onConflict: "household_id,period,category_id" });
-    if (error) throw new Error(error.message);
+  for (const row of categoryRows) {
+    await db
+      .insert(budgets)
+      .values(row)
+      .onConflictDoUpdate({
+        target: [budgets.householdId, budgets.period, budgets.categoryId],
+        set: { limitAmount: row.limitAmount },
+      });
   }
 
   revalidatePath("/budzet");

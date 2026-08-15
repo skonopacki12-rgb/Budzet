@@ -2,17 +2,17 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
+import { transactions } from "@/db/schema";
 
 export async function addExpense(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const household = await getActiveHousehold(supabase, user.id);
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
   if (!household) redirect("/onboarding");
 
   const amount = Number(String(formData.get("amount")).replace(",", "."));
@@ -29,22 +29,18 @@ export async function addExpense(formData: FormData) {
     throw new Error("Podaj datę wydatku.");
   }
 
-  const { error } = await supabase.from("transactions").insert({
-    household_id: household.id,
+  await db.insert(transactions).values({
+    householdId: household.id,
     type: "expense",
     amount,
     currency: household.currency,
-    occurred_on: occurredOn,
-    category_id: categoryId,
-    subcategory_id: subcategoryId,
+    occurredOn,
+    categoryId,
+    subcategoryId,
     shop,
     note,
-    created_by: user.id,
+    createdBy: user.id,
   });
-
-  if (error) {
-    throw new Error(error.message);
-  }
 
   revalidatePath("/");
   redirect("/?added=1");

@@ -7,9 +7,17 @@
 	"assets": {
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
-	}
-	// NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are NOT set
-	// here: Next.js inlines NEXT_PUBLIC_* vars into the build at compile
-	// time, so they must exist in .env.local (or the CI build env) *before*
-	// running `opennextjs-cloudflare build` — see README "Deploy na Cloudflare".
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "budzet",
+			// Placeholder — replace with the real id printed by
+			// `npx wrangler d1 create budzet` (see README "Wdrożenie na
+			// Cloudflare"). Local `wrangler dev` / `next dev` work fine with
+			// the placeholder since they use a local SQLite file, not this id.
+			"database_id": "REPLACE_WITH_D1_DATABASE_ID",
+			"migrations_dir": "migrations"
+		}
+	]
 }

@@ -1,32 +1,34 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { asc, eq, isNull, or } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
+import { categories, subcategories } from "@/db/schema";
 import { ExpenseForm } from "@/components/ExpenseForm";
 import { addExpense } from "./actions";
 
 export default async function AddExpensePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const household = await getActiveHousehold(supabase, user.id);
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
   if (!household) redirect("/onboarding");
 
-  const [{ data: categories }, { data: subcategories }] = await Promise.all([
-    supabase.from("categories").select("*").order("sort_order"),
-    supabase
-      .from("subcategories")
-      .select("*")
-      .or(`household_id.is.null,household_id.eq.${household.id}`)
-      .order("sort_order"),
+  const [categoryRows, subcategoryRows] = await Promise.all([
+    db.select().from(categories).orderBy(asc(categories.sortOrder)).all(),
+    db
+      .select()
+      .from(subcategories)
+      .where(or(isNull(subcategories.householdId), eq(subcategories.householdId, household.id)))
+      .orderBy(asc(subcategories.sortOrder))
+      .all(),
   ]);
 
   return (
     <div className="pt-2">
       <h1 className="mb-4 text-xl font-semibold text-neutral-900">Dodaj wydatek</h1>
-      <ExpenseForm categories={categories ?? []} subcategories={subcategories ?? []} action={addExpense} />
+      <ExpenseForm categories={categoryRows} subcategories={subcategoryRows} action={addExpense} />
     </div>
   );
 }
