@@ -89,6 +89,72 @@ Otwórz [http://localhost:3000](http://localhost:3000).
 3. Po pierwszym deployu dodaj domenę produkcyjną (`https://twoja-domena/auth/callback`)
    do Redirect URLs w Supabase.
 
+## Wdrożenie na Cloudflare (Workers)
+
+Aplikacja jest też przygotowana pod [Cloudflare Workers](https://developers.cloudflare.com/workers/)
+przez adapter [OpenNext](https://opennext.js.org/cloudflare) (`@opennextjs/cloudflare`,
+konfiguracja w `wrangler.jsonc` i `open-next.config.ts`).
+
+**Ważne ograniczenie:** Next.js 16 domyślnie uruchamia `proxy.ts` (dawny
+`middleware.ts`) w runtime Node.js i nie da się tego zmienić na Edge —
+a obecna wersja adaptera OpenNext dla Cloudflare (1.20.x) jeszcze nie
+obsługuje middleware/proxy w Node.js runtime. Dlatego w tym repo **nie ma
+pliku `src/proxy.ts`** — ochrona tras (przekierowanie niezalogowanych na
+`/login`, sprawdzenie gospodarstwa domowego) dzieje się w
+`src/app/(app)/layout.tsx` oraz na stronie `/onboarding`, a nie globalnie
+w middleware. Efekt end-user jest taki sam, ale odświeżanie sesji Supabase
+(silent refresh tokenu) nie dzieje się już na każdym requeście — przy
+długim braku aktywności może się zdarzyć wylogowanie wymagające ponownego
+kliknięcia linku logowania. Jeśli w przyszłości OpenNext doda wsparcie dla
+Node.js middleware (albo zdecydujesz się wdrażać na Vercel zamiast
+Cloudflare), `proxy.ts` można odtworzyć z historii commitów.
+
+### 1. Załóż konto i pobierz dane dostępowe
+
+1. Załóż konto na [dash.cloudflare.com](https://dash.cloudflare.com) (jeśli
+   jeszcze go nie masz).
+2. Zaloguj CLI: `npx wrangler login` (otworzy przeglądarkę) **albo** — jeśli
+   pracujesz w środowisku bez przeglądarki (np. to zdalne środowisko Claude
+   Code) — utwórz [API Token](https://dash.cloudflare.com/profile/api-tokens)
+   z uprawnieniem **Edit Cloudflare Workers** i ustaw go jako zmienną
+   środowiskową:
+
+   ```bash
+   export CLOUDFLARE_API_TOKEN=twoj-token
+   export CLOUDFLARE_ACCOUNT_ID=twoje-account-id   # z dashboardu, prawa kolumna
+   ```
+
+### 2. Ustaw prawdziwe dane Supabase przed buildem
+
+`NEXT_PUBLIC_SUPABASE_URL` i `NEXT_PUBLIC_SUPABASE_ANON_KEY` są wklejane do
+kodu **w momencie builda** (nie czytane w runtime Workera), więc muszą być
+w `.env.local` z prawdziwymi wartościami produkcyjnego projektu Supabase
+zanim zbudujesz Workera pod deploy — inaczej aplikacja na Cloudflare będzie
+gadać z nieistniejącym projektem.
+
+### 3. Build i podgląd lokalny
+
+```bash
+npm run cf:build     # next build + adaptacja OpenNext → .open-next/
+npx wrangler dev      # lokalny podgląd Workera na http://localhost:8787
+```
+
+### 4. Deploy
+
+```bash
+npm run cf:deploy
+```
+
+Po pierwszym deployu Wrangler wypisze adres `*.workers.dev`. Dodaj go
+(`https://twoj-worker.workers.dev/auth/callback`) do Redirect URLs w
+Supabase (**Authentication → URL Configuration**), tak jak przy Vercelu.
+
+### 5. Własna domena (opcjonalnie)
+
+W **Cloudflare Dashboard → Workers & Pages → budzet → Settings → Domains &
+Routes** dodaj własną domenę/subdomenę obsługiwaną przez to samo konto
+Cloudflare.
+
 ## Instalacja jako aplikacja na telefonie
 
 - **iPhone (Safari):** otwórz stronę → **Udostępnij** → **Dodaj do ekranu
@@ -104,13 +170,18 @@ src/app/(app)/        ekrany po zalogowaniu (pulpit, dodaj, budżet, paragony, u
 src/app/login/        logowanie (magic link + OAuth)
 src/app/onboarding/   zakładanie / dołączanie do gospodarstwa domowego
 src/app/auth/callback zamiana kodu Supabase na sesję
-src/proxy.ts           odświeżanie sesji i ochrona tras (następca middleware.ts w Next 16)
 src/lib/supabase/     klienci Supabase (przeglądarka / serwer)
 src/lib/database.types.ts  typy tabel (ręcznie odzwierciedlają migracje SQL)
 supabase/migrations/  schemat SQL + RLS
 supabase/seed.sql     słownik kategorii i podkategorii
 public/manifest.json, public/sw.js, public/icons/  PWA
+wrangler.jsonc, open-next.config.ts  konfiguracja wdrożenia na Cloudflare Workers
 ```
+
+Ochrona tras (przekierowanie niezalogowanych, sprawdzenie gospodarstwa
+domowego) jest w `src/app/(app)/layout.tsx` i `src/app/onboarding/page.tsx`
+zamiast w `src/proxy.ts` — patrz wyjaśnienie w sekcji „Wdrożenie na
+Cloudflare” wyżej.
 
 ## Rozwój — sugerowane następne kroki
 

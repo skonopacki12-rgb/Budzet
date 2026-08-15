@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveHousehold } from "@/lib/household";
 import { acceptInvite, createHousehold, invitePartner } from "./actions";
@@ -15,7 +16,7 @@ export default async function OnboardingPage({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return null;
+    redirect("/login");
   }
 
   const household = await getActiveHousehold(supabase, user.id);
