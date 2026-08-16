@@ -29,7 +29,7 @@ Zaimplementowany fundament (Etap 0–3 z planu):
 - Instalacja jako PWA (manifest, ikony, service worker z app-shellem
   offline, podpowiedź instalacji na iOS).
 
-Etap 4–7 (dobudowane po uruchomieniu na Cloudflare):
+Etap 4–8 (dobudowane po uruchomieniu na Cloudflare):
 
 - **Wydatki cykliczne** (`/cykliczne`) — cykl miesięczny/kwartalny/roczny/co
   X dni, przycisk „Zapłacone” tworzy transakcję i sam przesuwa datę następnej
@@ -47,13 +47,23 @@ Etap 4–7 (dobudowane po uruchomieniu na Cloudflare):
   gdy ustawiony, aplikacja wymaga go ponownie za każdym razem, gdy przeglądarka
   zostanie otwarta od nowa (nie przy każdym przejściu między ekranami w tej
   samej sesji).
+- **Skan paragonów i kategoryzacja AI** (`/paragony/nowy`) — zdjęcie
+  paragonu trafia do R2, model wizyjny Cloudflare Workers AI
+  (`@cf/meta/llama-3.2-11b-vision-instruct`) odczytuje sklep, datę, sumę
+  i pozycje, dopasowując każdej pozycji jedną z 15 kategorii z zamkniętego
+  słownika. Użytkownik przegląda wynik na `/paragony/[id]` — może odznaczyć
+  błędnie rozpoznaną pozycję, poprawić kategorię/podkategorię/kwotę — i
+  dopiero potwierdzenie zapisuje pozycje jako osobne wydatki (każda ze swoją
+  kategorią, w przeciwieństwie do jednego zbiorczego wydatku na cały
+  paragon). Plan (sekcja 4 i 10) zalecał najpierw przetestować prompt na
+  10–100 realnych paragonach poza repo — zamiast tego zbudowany został od
+  razu pełny przepływ z krokiem potwierdzenia/korekty, więc każde użycie na
+  żywym paragonie jest jednocześnie tym testem; jakość odczytu warto ocenić
+  po pierwszych realnych skanach i w razie potrzeby doprecyzować prompt w
+  `src/lib/receiptAi.ts`.
 
-Jeszcze nie zaimplementowane (kolejne etapy planu): skan paragonów i
-kategoryzacja AI, śledzenie cen produktów, asystent AI w czacie, powiadomienia
-push. Plan mówi wprost, żeby przetestować prompt AI na 10–100 realnych
-paragonach zanim zacznie się budować ekran skanowania (sekcja 4 i 10) — to
-naturalny kolejny krok. Tabele `receipts` / `receipt_items` już istnieją w
-schemacie, ale nie są jeszcze używane przez UI.
+Jeszcze nie zaimplementowane (kolejne etapy planu): śledzenie cen produktów,
+asystent AI w czacie, powiadomienia push.
 
 ### Ważne ograniczenia tej architektury
 
@@ -75,6 +85,13 @@ schemacie, ale nie są jeszcze używane przez UI.
   `src/lib/household.ts`. Przy dodawaniu nowych funkcji pamiętaj, żeby
   każde nowe zapytanie/mutację też jawnie ograniczać do gospodarstwa
   zalogowanego użytkownika.
+- **Workers AI nie ma lokalnej emulacji.** W przeciwieństwie do D1 i R2
+  (które lokalnie działają na plikach w `.wrangler/state`), binding `AI`
+  zawsze łączy się z prawdziwym Cloudflare — nawet zwykłe `npm run build`
+  czy `npm run dev` z bindingiem `ai` w `wrangler.jsonc` wymaga zalogowanego
+  Wranglera / `CLOUDFLARE_API_TOKEN` i działającej sieci do Cloudflare.
+  Bez tego build padnie na etapie „Establishing remote connection”. To
+  ograniczenie samej usługi, nie błąd konfiguracji.
 
 ## Uruchomienie lokalnie
 
@@ -133,6 +150,19 @@ npx wrangler d1 create budzet
 Komenda wypisze `database_id` — wklej go w `wrangler.jsonc` w miejsce
 `REPLACE_WITH_D1_DATABASE_ID`.
 
+### 2b. Utwórz bucket R2 na zdjęcia paragonów
+
+```bash
+npx wrangler r2 bucket create budzet-receipts
+```
+
+Nazwa musi być dokładnie taka jak w `wrangler.jsonc` (`budzet-receipts`) —
+w przeciwieństwie do `database_id` powyżej to nie jest placeholder do
+podmiany, tylko stała nazwa do utworzenia. Workers AI (skan i kategoryzacja
+paragonów) nie wymaga żadnego tworzenia zasobu — sam binding w
+`wrangler.jsonc` wystarczy, o ile token ma odpowiednie uprawnienie (patrz
+sekcja GitHub Actions niżej).
+
 ### 3. Wgraj migracje na produkcyjną bazę
 
 ```bash
@@ -160,11 +190,14 @@ migracje D1 i robi `cf:deploy`.
 
 Żeby to zadziałało:
 
-1. Wykonaj kroki 1–2 powyżej ręcznie **raz** (baza D1 musi już istnieć,
-   a `database_id` w `wrangler.jsonc` musi być prawdziwy, nie placeholder).
+1. Wykonaj kroki 1–2b powyżej ręcznie **raz** (baza D1 i bucket R2 muszą już
+   istnieć, a `database_id` w `wrangler.jsonc` musi być prawdziwy, nie
+   placeholder).
 2. W ustawieniach repo: **Settings → Secrets and variables → Actions → New
-   repository secret**, dodaj `CLOUDFLARE_API_TOKEN` z tokenem o uprawnieniu
-   **Edit Cloudflare Workers** (ten sam co w kroku 1).
+   repository secret**, dodaj `CLOUDFLARE_API_TOKEN`. Token musi mieć
+   (Custom Token, nie gotowy szablon) uprawnienia: **Account → D1 → Edit**,
+   **Account → Workers Scripts → Edit**, **Account → Workers R2 Storage →
+   Edit**, **Account → Workers AI → Edit**.
 
 Token trzymaj wyłącznie jako sekret repo — nigdy w kodzie, commitach ani
 w wiadomościach czy issue.
@@ -203,6 +236,9 @@ src/db/schema.ts      schemat Drizzle (źródło prawdy dla struktury bazy)
 src/lib/db.ts         dostęp do D1 (getCloudflareContext + drizzle)
 src/lib/auth.ts       hashowanie haseł, sesje, ciasteczka
 src/lib/household.ts  ustalanie aktywnego gospodarstwa + assertHouseholdMember
+src/lib/pin.ts         blokada PIN-em (hash, cookie odblokowania)
+src/lib/receiptAi.ts   prompt i parsowanie odpowiedzi Workers AI dla skanu paragonów
+src/lib/transactions.ts etykieta wydatku na listach (sklep vs. nazwa pozycji z paragonu)
 migrations/           migracje SQL dla D1 (generowane przez drizzle-kit) + seed kategorii
 public/manifest.json, public/sw.js, public/icons/  PWA
 wrangler.jsonc, open-next.config.ts, drizzle.config.ts  konfiguracja Cloudflare/D1
@@ -214,8 +250,8 @@ patrz „Ważne ograniczenia tej architektury” wyżej.
 
 ## Rozwój — sugerowane następne kroki
 
-Zgodnie z planem (sekcja 10): przetestuj prompt kategoryzacji AI na 10
-realnych paragonach (poza tym repo, np. w notebooku) zanim zaczniesz budować
-ekran skanowania. Zdjęcia paragonów najlepiej trzymać w
-[Cloudflare R2](https://developers.cloudflare.com/r2/) (dodaj binding w
-`wrangler.jsonc`, analogicznie do `DB`).
+Ze skanu paragonów zostały: śledzenie cen produktów (tabela `receipt_items`
+ma już pola do tego), asystent AI w czacie, powiadomienia push. Po
+pierwszych realnych skanach warto też ocenić jakość promptu w
+`src/lib/receiptAi.ts` — zdjęcia pod złym kątem/światłem albo bardzo długie
+paragony to naturalne przypadki do doprecyzowania.

@@ -15,5 +15,19 @@
 			"database_id": "da8e9987-ee6a-41af-9f86-538c09d80c07",
 			"migrations_dir": "migrations"
 		}
-	]
+	],
+	"r2_buckets": [
+		{
+			// Bucket must be created once with exactly this name:
+			// `npx wrangler r2 bucket create budzet-receipts` (see README
+			// "Wdrożenie na Cloudflare") — R2 bucket names can't contain
+			// placeholder-style uppercase/underscores, so unlike the D1
+			// database_id above this value is fixed, not a stand-in.
+			"binding": "RECEIPTS",
+			"bucket_name": "budzet-receipts"
+		}
+	],
+	"ai": {
+		"binding": "AI"
+	}
 }

@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
 import { formatPln } from "@/lib/date";
+import { transactionLabel } from "@/lib/transactions";
 import { categories, transactions } from "@/db/schema";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { deleteTransaction } from "./actions";
@@ -147,9 +148,7 @@ export default async function HistoryPage({
               return (
                 <li key={transaction.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <div className="min-w-0">
-                    <p className="truncate text-neutral-900">
-                      {transaction.shop || transaction.note || category?.name || "Wydatek"}
-                    </p>
+                    <p className="truncate text-neutral-900">{transactionLabel(transaction, category)}</p>
                     <p className="text-xs text-neutral-400">
                       {new Date(transaction.occurredOn).toLocaleDateString("pl-PL")}
                       {category ? ` · ${category.name}` : ""}

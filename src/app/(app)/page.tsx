@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
 import { monthPeriod, formatPln } from "@/lib/date";
+import { transactionLabel } from "@/lib/transactions";
 import { categories, monthlyBudgets, recurringExpenses, transactions } from "@/db/schema";
 
 export default async function DashboardPage() {
@@ -29,6 +30,7 @@ export default async function DashboardPage() {
         categoryId: transactions.categoryId,
         shop: transactions.shop,
         note: transactions.note,
+        receiptId: transactions.receiptId,
         occurredOn: transactions.occurredOn,
         createdAt: transactions.createdAt,
       })
@@ -203,9 +205,7 @@ export default async function DashboardPage() {
               return (
                 <li key={transaction.id} className="flex items-center justify-between py-2.5 text-sm">
                   <div>
-                    <p className="text-neutral-900">
-                      {transaction.shop || transaction.note || category?.name || "Wydatek"}
-                    </p>
+                    <p className="text-neutral-900">{transactionLabel(transaction, category)}</p>
                     <p className="text-xs text-neutral-400">
                       {new Date(transaction.occurredOn).toLocaleDateString("pl-PL")}
                       {category ? ` · ${category.name}` : ""}
