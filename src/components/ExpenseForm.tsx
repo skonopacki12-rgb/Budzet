@@ -7,16 +7,29 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+export interface ExpenseFormInitialValues {
+  amount: number;
+  occurredOn: string;
+  categoryId: string | null;
+  subcategoryId: string | null;
+  shop: string | null;
+  note: string | null;
+}
+
 export function ExpenseForm({
   categories,
   subcategories,
   action,
+  initial,
+  submitLabel = "Zapisz wydatek",
 }: {
   categories: Category[];
   subcategories: Subcategory[];
   action: (formData: FormData) => void;
+  initial?: ExpenseFormInitialValues;
+  submitLabel?: string;
 }) {
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? categories[0]?.id ?? "");
 
   const subcategoryOptions = useMemo(
     () => subcategories.filter((sub) => sub.categoryId === categoryId),
@@ -33,6 +46,7 @@ export function ExpenseForm({
           inputMode="decimal"
           required
           placeholder="0,00"
+          defaultValue={initial ? String(initial.amount).replace(".", ",") : undefined}
           className="rounded-lg border border-neutral-300 px-3 py-2.5 text-2xl font-semibold outline-none focus:border-neutral-900"
         />
       </label>
@@ -43,7 +57,7 @@ export function ExpenseForm({
           name="occurred_on"
           type="date"
           required
-          defaultValue={todayIso()}
+          defaultValue={initial?.occurredOn ?? todayIso()}
           className="rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
         />
       </label>
@@ -69,6 +83,7 @@ export function ExpenseForm({
           Podkategoria
           <select
             name="subcategory_id"
+            defaultValue={initial?.subcategoryId ?? undefined}
             className="rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
           >
             {subcategoryOptions.map((sub) => (
@@ -86,6 +101,7 @@ export function ExpenseForm({
           name="shop"
           type="text"
           placeholder="np. Biedronka"
+          defaultValue={initial?.shop ?? undefined}
           className="rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
         />
       </label>
@@ -95,6 +111,7 @@ export function ExpenseForm({
         <textarea
           name="note"
           rows={2}
+          defaultValue={initial?.note ?? undefined}
           className="rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
         />
       </label>
@@ -103,7 +120,7 @@ export function ExpenseForm({
         type="submit"
         className="mt-2 rounded-lg bg-neutral-900 px-3 py-3 text-sm font-medium text-white"
       >
-        Zapisz wydatek
+        {submitLabel}
       </button>
     </form>
   );

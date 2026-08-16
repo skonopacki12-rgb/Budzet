@@ -15,9 +15,9 @@ const RESULT_LIMIT = 200;
 export default async function HistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category_id?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ q?: string; category_id?: string; from?: string; to?: string; edited?: string }>;
 }) {
-  const { q, category_id: categoryId, from, to } = await searchParams;
+  const { q, category_id: categoryId, from, to, edited } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -65,6 +65,10 @@ export default async function HistoryPage({
   return (
     <div className="flex flex-col gap-6 pt-2">
       <h1 className="text-xl font-semibold text-neutral-900">Historia wydatków</h1>
+
+      {edited && (
+        <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Zmiany zapisane.</div>
+      )}
 
       <form className="flex flex-col gap-3">
         <input
@@ -156,6 +160,9 @@ export default async function HistoryPage({
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <span className="font-medium text-neutral-900">{formatPln(transaction.amount)}</span>
+                    <Link href={`/historia/${transaction.id}/edytuj`} className="text-xs font-medium text-neutral-600 underline">
+                      Edytuj
+                    </Link>
                     <form action={deleteTransaction}>
                       <input type="hidden" name="id" value={transaction.id} />
                       <ConfirmButton
