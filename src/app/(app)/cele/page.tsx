@@ -28,9 +28,9 @@ export default async function SavingsGoalsPage() {
 
   return (
     <div className="flex flex-col gap-6 pt-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-1.5">
         <h1 className="text-xl font-semibold text-neutral-900">Cele oszczędnościowe</h1>
-        <Link href="/budzet" className="text-sm text-neutral-500 underline">
+        <Link href="/budzet" className="text-sm text-neutral-500 underline self-start">
           Budżet
         </Link>
       </div>
@@ -106,7 +106,7 @@ export default async function SavingsGoalsPage() {
         )}
       </section>
 
-      <section className="flex flex-col gap-3 border-t border-neutral-100 pt-6">
+      <section className="flex flex-col gap-3 border-t border-neutral-100 pt-6 md:max-w-md">
         <h2 className="text-sm font-medium text-neutral-700">Dodaj cel</h2>
         <form action={addSavingsGoal} className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-sm text-neutral-700">

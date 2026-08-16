@@ -76,9 +76,9 @@ export default async function StatsPage() {
 
   return (
     <div className="flex flex-col gap-6 pt-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-1.5">
         <h1 className="text-xl font-semibold text-neutral-900">Statystyki</h1>
-        <Link href="/budzet" className="text-sm text-neutral-500 underline">
+        <Link href="/budzet" className="text-sm text-neutral-500 underline self-start">
           Budżet
         </Link>
       </div>
@@ -95,16 +95,27 @@ export default async function StatsPage() {
 
       <section>
         <h2 className="mb-3 text-sm font-medium text-neutral-700">Ostatnie {MONTHS_BACK} miesięcy</h2>
-        <div className="flex h-32 items-end gap-1.5">
+        {/* Bars and labels are separate rows on purpose: a bar's percentage
+            height only resolves against a parent with a *definite* height,
+            and nesting the label in the same flex-col item (sized by content,
+            since the row uses items-end) made that height indefinite —
+            collapsing every bar to 0. */}
+        <div className="flex h-32 items-stretch gap-1.5">
           {monthBars.map(({ key, total }) => (
-            <div key={key} className="flex flex-1 flex-col items-center gap-1">
+            <div key={key} className="flex flex-1 flex-col justify-end">
               <div
                 className="w-full rounded-t bg-neutral-900"
                 style={{ height: `${maxMonthTotal ? Math.max((total / maxMonthTotal) * 100, total > 0 ? 4 : 0) : 0}%` }}
                 title={formatPln(total)}
               />
-              <span className="text-[10px] text-neutral-400">{monthLabel(key)}</span>
             </div>
+          ))}
+        </div>
+        <div className="mt-1 flex gap-1.5">
+          {monthBars.map(({ key }) => (
+            <span key={key} className="flex-1 text-center text-[10px] text-neutral-400">
+              {monthLabel(key)}
+            </span>
           ))}
         </div>
       </section>

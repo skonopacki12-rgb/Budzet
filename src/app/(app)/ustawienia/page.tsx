@@ -28,7 +28,7 @@ export default async function SettingsPage({
   const memberCount = memberCountRow?.value ?? 1;
 
   return (
-    <div className="flex flex-col gap-6 pt-2">
+    <div className="flex flex-col gap-6 pt-2 md:max-w-xl">
       <h1 className="text-xl font-semibold text-neutral-900">Ustawienia</h1>
 
       <section className="rounded-2xl border border-neutral-200 p-4 text-sm">

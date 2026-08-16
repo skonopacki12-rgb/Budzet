@@ -16,15 +16,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (await requiresUnlock(db, user.id)) redirect("/odblokuj");
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
-      <header className="flex items-center justify-between px-4 py-3">
+    <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col md:max-w-2xl lg:max-w-3xl xl:max-w-4xl">
+      <header className="flex items-center justify-between px-4 py-3 md:px-6 lg:px-8">
         <div>
           <p className="text-xs text-neutral-400">Gospodarstwo domowe</p>
           <p className="text-sm font-medium text-neutral-900">{household.name}</p>
         </div>
       </header>
       <InstallHint />
-      <main className="flex-1 px-4 pb-24">{children}</main>
+      <main className="flex-1 px-4 pb-24 md:px-6 lg:px-8">{children}</main>
       <BottomNav />
     </div>
   );

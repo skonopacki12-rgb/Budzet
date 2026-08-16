@@ -14,7 +14,7 @@ export default async function NewReceiptPage() {
   if (!household) redirect("/onboarding");
 
   return (
-    <div className="pt-2">
+    <div className="pt-2 md:max-w-md">
       <h1 className="mb-1 text-xl font-semibold text-neutral-900">Dodaj paragon</h1>
       <p className="mb-4 text-sm text-neutral-500">
         Zrób zdjęcie paragonu — AI odczyta sklep, kwoty i pozycje, a Ty potwierdzisz kategorie przed zapisaniem.

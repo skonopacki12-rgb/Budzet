@@ -50,11 +50,11 @@ export default async function ReceiptDetailPage({
 
   return (
     <div className="flex flex-col gap-5 pt-2">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-neutral-900">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="min-w-0 truncate text-xl font-semibold text-neutral-900">
           {receipt.storeName || "Paragon"}
         </h1>
-        <Link href="/paragony" className="text-sm text-neutral-500 underline">
+        <Link href="/paragony" className="shrink-0 text-sm text-neutral-500 underline">
           Wróć
         </Link>
       </div>

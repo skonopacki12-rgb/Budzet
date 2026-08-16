@@ -17,7 +17,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-      <ul className="mx-auto flex max-w-lg items-stretch justify-between px-2">
+      <ul className="mx-auto flex max-w-lg items-stretch justify-between px-2 md:max-w-2xl lg:max-w-3xl xl:max-w-4xl">
         {ITEMS.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           const isAdd = href === "/dodaj";
