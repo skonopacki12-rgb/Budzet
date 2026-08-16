@@ -14,8 +14,6 @@ export interface ExtractedReceipt {
   purchaseDate: string | null;
   totalAmount: number | null;
   items: ExtractedReceiptItem[];
-  /** Raw step-1 transcription, kept for diagnosing bad reads without live-log access. */
-  rawText: string;
 }
 
 export interface CategoryOption {
@@ -23,77 +21,19 @@ export interface CategoryOption {
   subcategories: string[];
 }
 
-// Not @cf/meta/llama-3.2-11b-vision-instruct: its community license excludes
-// users/companies domiciled in the EU, which this app's users are.
-// llava-1.5-7b-hf tried first but produced near-empty/hallucinated
-// transcriptions on real receipts (see git history) — trying the only other
-// image-to-text model on Workers AI, though it's smaller and built for
-// short image captions rather than dense document text, so this is a
-// low-confidence experiment, not an expected fix.
-const VISION_MODEL = "@cf/unum/uform-gen2-qwen-500m";
-const TEXT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const MODEL = "claude-sonnet-5";
+const TOOL_NAME = "record_receipt";
 
-/**
- * Turns a printed amount like "44,99 zł" or "44.99" into 44.99. Amounts are
- * requested as printed text rather than numbers the model computes itself —
- * small/mid vision-language models are far more reliable at copying digit
- * sequences than at doing the comma-to-decimal conversion in the same step.
- */
-function parsePrice(text: unknown): number | null {
-  if (typeof text !== "string" || !text.trim()) return null;
-  const cleaned = text.replace(/[^\d,.-]/g, "");
-  if (!cleaned) return null;
-  const normalized = cleaned.includes(",") && !cleaned.includes(".") ? cleaned.replace(",", ".") : cleaned;
-  const value = Number(normalized);
-  return Number.isFinite(value) ? value : null;
-}
-
-function nonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-/** Step 1: ask the vision model only to transcribe, not to reason — its one relatively reliable skill. */
-export async function transcribeReceipt(ai: Ai, imageBytes: Uint8Array): Promise<string> {
-  const result = await ai.run(VISION_MODEL, {
-    prompt:
-      "Przepisz DOKŁADNIE cały widoczny tekst z tego zdjęcia paragonu sklepowego, linijka po linijce, w tej samej kolejności co na zdjęciu. Nie pomijaj żadnej pozycji ani kwoty, nie interpretuj, nie licz — tylko przepisz to, co widzisz.",
-    image: Array.from(imageBytes),
-    max_tokens: 1024,
-  });
-
-  const text = result.description ?? "";
-  if (!text.trim()) {
-    throw new Error("Model AI nie odczytał żadnego tekstu ze zdjęcia.");
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
   }
-  return text;
+  return btoa(binary);
 }
 
-const STRUCTURE_SCHEMA = {
-  type: "object",
-  properties: {
-    store_name: { type: "string" },
-    purchase_date: { type: "string" },
-    total_amount: { type: "string" },
-    items: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string" },
-          quantity: { type: "number" },
-          unit_price: { type: "string" },
-          total_price: { type: "string" },
-          category: { type: "string" },
-          subcategory: { type: "string" },
-        },
-        required: ["name", "total_price"],
-      },
-    },
-  },
-  required: ["items"],
-};
-
-function buildStructurePrompt(ocrText: string, categories: CategoryOption[]): string {
+function buildPrompt(categories: CategoryOption[]): string {
   const categoryList = categories
     .map((category) =>
       category.subcategories.length > 0
@@ -102,75 +42,115 @@ function buildStructurePrompt(ocrText: string, categories: CategoryOption[]): st
     )
     .join("\n");
 
-  return `Poniżej jest tekst przepisany z polskiego paragonu sklepowego (mógł zostać odczytany niedokładnie — użyj kontekstu, żeby sensownie zinterpretować pozycje i kwoty):
+  return `Odczytaj to zdjęcie polskiego paragonu sklepowego i zapisz jego dane wywołując narzędzie "${TOOL_NAME}".
 
-"""
-${ocrText}
-"""
+Wypisz WSZYSTKIE kupione pozycje (pomiń linie typu "SUMA", "PTU", numer NIP, dane kasjera, numer transakcji — tylko realne zakupione produkty/usługi). Odczytaj kwoty dokładnie tak jak są wydrukowane.
 
-Wypisz z niego: nazwę sklepu, datę zakupu (YYYY-MM-DD), sumę do zapłaty oraz listę kupionych pozycji (pomiń linie typu "SUMA", "PTU", "opakowanie zwrotne" jeśli to nie jest osobny zakupiony produkt, numer NIP, dane kasjera itp. — tylko realne pozycje zakupu).
-
-Kwoty ("total_amount", "unit_price", "total_price") podaj jako tekst DOKŁADNIE tak, jak są zapisane w źródle (np. "44,99"), bez przeliczania.
-
-Dla każdej pozycji dobierz kategorię i (jeśli pasuje) podkategorię WYŁĄCZNIE z tej listy, przepisując nazwę dokładnie tak jak w liście:
-${categoryList}
-
-Jeśli czegoś nie da się ustalić, zostaw puste pole "". Jeśli nie ma żadnych pozycji, zwróć pustą listę "items".`;
+Dla każdej pozycji dobierz kategorię i (jeśli pasuje) podkategorię WYŁĄCZNIE z tej listy, przepisując nazwę dokładnie tak jak w liście — jeśli żadna nie pasuje, pomiń pole:
+${categoryList}`;
 }
 
-/**
- * With response_format: json_schema, the shape actually returned at runtime
- * doesn't reliably match the ambient `{ response: string }` type — it may be
- * the parsed object directly, an object with `.response` already parsed, an
- * object with `.response` as a JSON string, or (rarely) a bare string. Handle
- * all of them rather than assume one, since this can't be exercised locally.
- */
-function extractStructuredObject(result: unknown): Record<string, unknown> {
-  let candidate: unknown = result;
-  if (candidate && typeof candidate === "object" && "response" in candidate) {
-    candidate = (candidate as { response: unknown }).response;
-  }
-  if (typeof candidate === "string") {
-    const match = candidate.match(/\{[\s\S]*\}/);
-    if (!match) {
-      throw new Error("Model AI nie zwrócił poprawnego JSON-a.");
-    }
-    candidate = JSON.parse(match[0]);
-  }
-  if (!candidate || typeof candidate !== "object") {
-    throw new Error("Model AI nie zwrócił poprawnego JSON-a.");
-  }
-  return candidate as Record<string, unknown>;
+const RECEIPT_TOOL = {
+  name: TOOL_NAME,
+  description: "Zapisuje dane odczytane z paragonu sklepowego.",
+  input_schema: {
+    type: "object",
+    properties: {
+      store_name: { type: ["string", "null"] },
+      purchase_date: { type: ["string", "null"], description: "Data zakupu w formacie YYYY-MM-DD." },
+      total_amount: { type: ["number", "null"], description: "Suma do zapłaty z paragonu." },
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            quantity: { type: "number" },
+            unit_price: { type: ["number", "null"] },
+            total_price: { type: "number" },
+            category: { type: ["string", "null"] },
+            subcategory: { type: ["string", "null"] },
+          },
+          required: ["name", "total_price"],
+        },
+      },
+    },
+    required: ["items"],
+  },
+};
+
+interface ClaudeToolUseBlock {
+  type: "tool_use";
+  name: string;
+  input: Record<string, unknown>;
 }
 
-/** Step 2: a strong text-only model turns the raw transcription into structured, categorized data. */
-export async function structureReceipt(
-  ai: Ai,
-  ocrText: string,
+interface ClaudeResponse {
+  content?: Array<{ type: string } & Partial<ClaudeToolUseBlock>>;
+  error?: { message?: string };
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function toNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+export async function extractReceipt(
+  apiKey: string,
+  imageBytes: Uint8Array,
   categories: CategoryOption[],
-): Promise<Omit<ExtractedReceipt, "rawText">> {
-  const result = await ai.run(TEXT_MODEL, {
-    prompt: buildStructurePrompt(ocrText, categories),
-    response_format: { type: "json_schema", json_schema: STRUCTURE_SCHEMA },
-    max_tokens: 2048,
+): Promise<ExtractedReceipt> {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 2048,
+      tools: [RECEIPT_TOOL],
+      tool_choice: { type: "tool", name: TOOL_NAME },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: toBase64(imageBytes) } },
+            { type: "text", text: buildPrompt(categories) },
+          ],
+        },
+      ],
+    }),
   });
 
-  const parsed = extractStructuredObject(result);
-  if (!Array.isArray(parsed.items)) {
-    throw new Error("Odpowiedź AI nie zawiera listy pozycji.");
+  const data = (await response.json()) as ClaudeResponse;
+  if (!response.ok) {
+    throw new Error(data.error?.message || `Claude API zwróciło błąd (${response.status}).`);
   }
+
+  const toolUse = data.content?.find((block): block is ClaudeToolUseBlock => block.type === "tool_use");
+  if (!toolUse) {
+    throw new Error("Model AI nie zwrócił ustrukturyzowanej odpowiedzi.");
+  }
+
+  const parsed = toolUse.input;
+  const items = Array.isArray(parsed.items) ? parsed.items : [];
 
   return {
     storeName: nonEmptyString(parsed.store_name),
     purchaseDate: nonEmptyString(parsed.purchase_date),
-    totalAmount: parsePrice(parsed.total_amount),
-    items: parsed.items.map((item): ExtractedReceiptItem => {
+    totalAmount: toNumber(parsed.total_amount),
+    items: items.map((item): ExtractedReceiptItem => {
       const row = item as Record<string, unknown>;
       return {
         name: nonEmptyString(row.name) ?? "Pozycja",
         quantity: typeof row.quantity === "number" && row.quantity > 0 ? row.quantity : 1,
-        unitPrice: parsePrice(row.unit_price),
-        totalPrice: parsePrice(row.total_price) ?? 0,
+        unitPrice: toNumber(row.unit_price),
+        totalPrice: toNumber(row.total_price) ?? 0,
         category: nonEmptyString(row.category),
         subcategory: nonEmptyString(row.subcategory),
       };

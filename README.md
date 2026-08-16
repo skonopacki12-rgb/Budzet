@@ -48,21 +48,27 @@ Etap 4–8 (dobudowane po uruchomieniu na Cloudflare):
   zostanie otwarta od nowa (nie przy każdym przejściu między ekranami w tej
   samej sesji).
 - **Skan paragonów i kategoryzacja AI** (`/paragony/nowy`) — zdjęcie
-  paragonu trafia do R2, model wizyjny Cloudflare Workers AI
-  (`@cf/llava-hf/llava-1.5-7b-hf` — **nie** `llama-3.2-11b-vision-instruct`,
-  bo jego licencja Meta wprost wyklucza osoby/firmy z UE) odczytuje sklep,
-  datę, sumę i pozycje, dopasowując każdej pozycji jedną z 15 kategorii
-  z zamkniętego słownika. Użytkownik przegląda wynik na `/paragony/[id]` —
-  może odznaczyć
-  błędnie rozpoznaną pozycję, poprawić kategorię/podkategorię/kwotę — i
-  dopiero potwierdzenie zapisuje pozycje jako osobne wydatki (każda ze swoją
-  kategorią, w przeciwieństwie do jednego zbiorczego wydatku na cały
-  paragon). Plan (sekcja 4 i 10) zalecał najpierw przetestować prompt na
-  10–100 realnych paragonach poza repo — zamiast tego zbudowany został od
-  razu pełny przepływ z krokiem potwierdzenia/korekty, więc każde użycie na
-  żywym paragonie jest jednocześnie tym testem; jakość odczytu warto ocenić
-  po pierwszych realnych skanach i w razie potrzeby doprecyzować prompt w
-  `src/lib/receiptAi.ts`.
+  paragonu trafia do R2, [Claude](https://www.anthropic.com) (model
+  `claude-sonnet-5`, wołany przez zwykłe `fetch` do `api.anthropic.com` —
+  nie przez binding Workers AI) czyta sklep, datę, sumę i wszystkie pozycje,
+  dopasowując każdej pozycji kategorię i podkategorię z zamkniętego słownika,
+  w jednym wywołaniu z wymuszonym schematem (`tool_choice`). Użytkownik
+  przegląda wynik na `/paragony/[id]` — może odznaczyć błędnie rozpoznaną
+  pozycję, poprawić kategorię/podkategorię/kwotę, zobaczyć sumę per
+  kategoria — i dopiero potwierdzenie zapisuje pozycje jako osobne wydatki
+  (każda ze swoją kategorią, nie jeden zbiorczy wydatek na cały paragon).
+
+  **Historia decyzji o modelu** (zanim trafiono na Claude): plan (sekcja 4
+  i 10) zalecał przetestować prompt na realnych paragonach przed budową
+  ekranu skanowania. Najpierw wypróbowano darmowe modele wizyjne z
+  Cloudflare Workers AI — `llama-3.2-11b-vision-instruct` odpadł (licencja
+  Meta wyklucza użytkowników/firmy z UE, tak samo cała rodzina Llama 4),
+  `llava-1.5-7b-hf` czytał realne paragony na poziomie halucynacji
+  pojedynczej, zmyślonej linijki zamiast całego tekstu, a
+  `uform-gen2-qwen-500m` okazał się wycofany z katalogu. Po wyczerpaniu
+  darmowych opcji przełączono się na Claude, co od razu dało bezbłędny
+  odczyt (kwoty co do grosza, trafne kategorie i podkategorie) na
+  pierwszym realnym teście.
 
 Jeszcze nie zaimplementowane (kolejne etapy planu): śledzenie cen produktów,
 asystent AI w czacie, powiadomienia push.
@@ -87,13 +93,10 @@ asystent AI w czacie, powiadomienia push.
   `src/lib/household.ts`. Przy dodawaniu nowych funkcji pamiętaj, żeby
   każde nowe zapytanie/mutację też jawnie ograniczać do gospodarstwa
   zalogowanego użytkownika.
-- **Workers AI nie ma lokalnej emulacji.** W przeciwieństwie do D1 i R2
-  (które lokalnie działają na plikach w `.wrangler/state`), binding `AI`
-  zawsze łączy się z prawdziwym Cloudflare — nawet zwykłe `npm run build`
-  czy `npm run dev` z bindingiem `ai` w `wrangler.jsonc` wymaga zalogowanego
-  Wranglera / `CLOUDFLARE_API_TOKEN` i działającej sieci do Cloudflare.
-  Bez tego build padnie na etapie „Establishing remote connection”. To
-  ograniczenie samej usługi, nie błąd konfiguracji.
+- **Skan paragonów wymaga klucza Anthropic.** `ANTHROPIC_API_KEY` to sekret
+  Workera (`wrangler secret put`), nie binding w `wrangler.jsonc` — patrz
+  „Wdrożenie” niżej. Bez niego `/paragony/nowy` zwróci błąd przy analizie,
+  reszta aplikacji działa normalnie.
 
 ## Uruchomienie lokalnie
 
@@ -114,6 +117,19 @@ npm run db:migrate:local
 
 To wgrywa schemat (`migrations/0000_*.sql`) i słownik kategorii
 (`migrations/0001_seed_categories.sql`).
+
+### 2b. (Opcjonalnie) klucz Anthropic do testowania skanu paragonów
+
+Skan paragonów lokalnie wymaga klucza Claude. Załóż plik `.dev.vars`
+(gitignored) w katalogu głównym:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Klucz weź z [console.anthropic.com](https://console.anthropic.com) →
+Settings → API Keys. Bez tego pliku reszta aplikacji działa normalnie,
+tylko `/paragony/nowy` zwróci błąd przy próbie analizy.
 
 ### 3. Odpal aplikację
 
@@ -160,10 +176,7 @@ npx wrangler r2 bucket create budzet-receipts
 
 Nazwa musi być dokładnie taka jak w `wrangler.jsonc` (`budzet-receipts`) —
 w przeciwieństwie do `database_id` powyżej to nie jest placeholder do
-podmiany, tylko stała nazwa do utworzenia. Workers AI (skan i kategoryzacja
-paragonów) nie wymaga żadnego tworzenia zasobu — sam binding w
-`wrangler.jsonc` wystarczy, o ile token ma odpowiednie uprawnienie (patrz
-sekcja GitHub Actions niżej).
+podmiany, tylko stała nazwa do utworzenia.
 
 ### 3. Wgraj migracje na produkcyjną bazę
 
@@ -184,11 +197,25 @@ bindingami Workera, nie publicznymi kluczami wklejanymi w build).
 
 Po pierwszym deployu Wrangler wypisze adres `https://budzet.<twoj-subdomena>.workers.dev`.
 
+### 4b. Ustaw klucz Anthropic na Workerze
+
+Skan paragonów woła Claude, więc Worker potrzebuje klucza jako **sekretu**
+(nie zmiennej w `wrangler.jsonc` — sekrety nie trafiają do repo):
+
+```bash
+npx wrangler secret put ANTHROPIC_API_KEY
+```
+
+Wklej klucz z [console.anthropic.com](https://console.anthropic.com) →
+Settings → API Keys, kiedy zapyta. Trzeba to zrobić raz — sekret zostaje
+zapisany po stronie Cloudflare między deployami.
+
 ### Automatyczny deploy przez GitHub Actions
 
 Repo zawiera `.github/workflows/deploy.yml` — na każdy push do `main` (albo
 ręcznie z zakładki *Actions* → *Run workflow*) buduje projekt, wgrywa
-migracje D1 i robi `cf:deploy`.
+migracje D1, robi `cf:deploy` i ustawia sekret `ANTHROPIC_API_KEY` na
+Workerze.
 
 Żeby to zadziałało:
 
@@ -196,13 +223,15 @@ migracje D1 i robi `cf:deploy`.
    istnieć, a `database_id` w `wrangler.jsonc` musi być prawdziwy, nie
    placeholder).
 2. W ustawieniach repo: **Settings → Secrets and variables → Actions → New
-   repository secret**, dodaj `CLOUDFLARE_API_TOKEN`. Token musi mieć
-   (Custom Token, nie gotowy szablon) uprawnienia: **Account → D1 → Edit**,
-   **Account → Workers Scripts → Edit**, **Account → Workers R2 Storage →
-   Edit**, **Account → Workers AI → Edit**.
+   repository secret**, dodaj dwa sekrety:
+   - `CLOUDFLARE_API_TOKEN` — Custom Token (nie gotowy szablon) z
+     uprawnieniami: **Account → D1 → Edit**, **Account → Workers Scripts →
+     Edit**, **Account → Workers R2 Storage → Edit**.
+   - `ANTHROPIC_API_KEY` — klucz z console.anthropic.com (patrz krok 4b
+     wyżej — CI ustawia go na Workerze automatycznie z tego sekretu).
 
-Token trzymaj wyłącznie jako sekret repo — nigdy w kodzie, commitach ani
-w wiadomościach czy issue.
+Oba sekrety trzymaj wyłącznie jako sekrety repo — nigdy w kodzie, commitach
+ani w wiadomościach czy issue.
 
 ### 5. Własna domena (opcjonalnie)
 
@@ -239,7 +268,8 @@ src/lib/db.ts         dostęp do D1 (getCloudflareContext + drizzle)
 src/lib/auth.ts       hashowanie haseł, sesje, ciasteczka
 src/lib/household.ts  ustalanie aktywnego gospodarstwa + assertHouseholdMember
 src/lib/pin.ts         blokada PIN-em (hash, cookie odblokowania)
-src/lib/receiptAi.ts   prompt i parsowanie odpowiedzi Workers AI dla skanu paragonów
+src/lib/receiptAi.ts   wywołanie Claude (fetch + tool_choice) dla skanu paragonów
+src/types/cloudflare-secrets.d.ts  typ ANTHROPIC_API_KEY (dopisany ręcznie, bo to sekret, nie binding)
 src/lib/transactions.ts etykieta wydatku na listach (sklep vs. nazwa pozycji z paragonu)
 migrations/           migracje SQL dla D1 (generowane przez drizzle-kit) + seed kategorii
 public/manifest.json, public/sw.js, public/icons/  PWA

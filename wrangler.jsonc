@@ -26,8 +26,5 @@
 			"binding": "RECEIPTS",
 			"bucket_name": "budzet-receipts"
 		}
-	],
-	"ai": {
-		"binding": "AI"
-	}
+	]
 }
