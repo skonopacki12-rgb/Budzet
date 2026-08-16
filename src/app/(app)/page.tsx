@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
 import { monthPeriod, formatPln } from "@/lib/date";
-import { categories, monthlyBudgets, transactions } from "@/db/schema";
+import { categories, monthlyBudgets, recurringExpenses, transactions } from "@/db/schema";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -16,7 +16,7 @@ export default async function DashboardPage() {
 
   const { periodStart, periodEnd, daysInMonth, dayOfMonth } = monthPeriod();
 
-  const [monthlyBudget, txRows, categoryRows] = await Promise.all([
+  const [monthlyBudget, txRows, categoryRows, dueRecurring] = await Promise.all([
     db
       .select({ limitAmount: monthlyBudgets.limitAmount })
       .from(monthlyBudgets)
@@ -28,6 +28,7 @@ export default async function DashboardPage() {
         amount: transactions.amount,
         categoryId: transactions.categoryId,
         shop: transactions.shop,
+        note: transactions.note,
         occurredOn: transactions.occurredOn,
         createdAt: transactions.createdAt,
       })
@@ -43,6 +44,12 @@ export default async function DashboardPage() {
       .orderBy(desc(transactions.occurredOn), desc(transactions.createdAt))
       .all(),
     db.select().from(categories).orderBy(asc(categories.sortOrder)).all(),
+    db
+      .select({ id: recurringExpenses.id, name: recurringExpenses.name, amount: recurringExpenses.amount, nextDueDate: recurringExpenses.nextDueDate })
+      .from(recurringExpenses)
+      .where(and(eq(recurringExpenses.householdId, household.id), eq(recurringExpenses.active, true)))
+      .orderBy(asc(recurringExpenses.nextDueDate))
+      .all(),
   ]);
 
   const categoryById = new Map(categoryRows.map((category) => [category.id, category]));
@@ -75,6 +82,11 @@ export default async function DashboardPage() {
           : "bg-red-500";
 
   const recent = txRows.slice(0, 8);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const upcomingLimit = new Date();
+  upcomingLimit.setDate(upcomingLimit.getDate() + 7);
+  const upcomingRecurring = dueRecurring.filter((r) => r.nextDueDate <= upcomingLimit.toISOString().slice(0, 10));
 
   return (
     <div className="flex flex-col gap-6 pt-2">
@@ -109,6 +121,30 @@ export default async function DashboardPage() {
           {forecastDiff > 0
             ? `Przy obecnym tempie przekroczysz budżet o ${formatPln(forecastDiff)} do końca miesiąca.`
             : `Jesteś na dobrej drodze — przy obecnym tempie zostanie Ci ok. ${formatPln(-forecastDiff)}.`}
+        </section>
+      )}
+
+      {upcomingRecurring.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-medium text-neutral-700">Nadchodzące płatności cykliczne</h2>
+            <Link href="/cykliczne" className="text-xs text-neutral-500 underline">
+              Zarządzaj
+            </Link>
+          </div>
+          <ul className="flex flex-col divide-y divide-neutral-100">
+            {upcomingRecurring.map((r) => (
+              <li key={r.id} className="flex items-center justify-between py-2 text-sm">
+                <div>
+                  <p className="text-neutral-900">{r.name}</p>
+                  <p className={`text-xs ${r.nextDueDate < today ? "font-medium text-red-600" : "text-neutral-400"}`}>
+                    {new Date(r.nextDueDate).toLocaleDateString("pl-PL")}
+                  </p>
+                </div>
+                <span className="font-medium text-neutral-900">{formatPln(r.amount)}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
@@ -162,7 +198,9 @@ export default async function DashboardPage() {
               return (
                 <li key={transaction.id} className="flex items-center justify-between py-2.5 text-sm">
                   <div>
-                    <p className="text-neutral-900">{transaction.shop || category?.name || "Wydatek"}</p>
+                    <p className="text-neutral-900">
+                      {transaction.shop || transaction.note || category?.name || "Wydatek"}
+                    </p>
                     <p className="text-xs text-neutral-400">
                       {new Date(transaction.occurredOn).toLocaleDateString("pl-PL")}
                       {category ? ` · ${category.name}` : ""}
