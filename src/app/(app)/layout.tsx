@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
+import { requiresUnlock } from "@/lib/pin";
 import { BottomNav } from "@/components/BottomNav";
 import { InstallHint } from "@/components/InstallHint";
 
@@ -12,6 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const db = await getDb();
   const household = await getActiveHousehold(db, user.id);
   if (!household) redirect("/onboarding");
+  if (await requiresUnlock(db, user.id)) redirect("/odblokuj");
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">

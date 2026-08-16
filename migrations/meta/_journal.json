@@ -8,6 +8,13 @@
       "when": 1786833488696,
       "tag": "0000_flawless_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786865832527,
+      "tag": "0002_add_pin_hash",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,7 @@ export const users = sqliteTable("users", {
   id: id(),
   email: text("email").notNull(),
   passwordHash: text("password_hash").notNull(),
+  pinHash: text("pin_hash"),
   createdAt: createdAt(),
 }, (table) => [uniqueIndex("users_email_idx").on(table.email)]);
 
