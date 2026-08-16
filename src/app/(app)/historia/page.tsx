@@ -54,6 +54,13 @@ export default async function HistoryPage({
   const total = rows.reduce((sum, row) => sum + row.amount, 0);
   const hasFilters = Boolean(q?.trim() || categoryId || from || to);
 
+  const exportParams = new URLSearchParams();
+  if (q?.trim()) exportParams.set("q", q.trim());
+  if (categoryId) exportParams.set("category_id", categoryId);
+  if (from) exportParams.set("from", from);
+  if (to) exportParams.set("to", to);
+  const exportHref = `/historia/eksport${exportParams.size > 0 ? `?${exportParams.toString()}` : ""}`;
+
   return (
     <div className="flex flex-col gap-6 pt-2">
       <h1 className="text-xl font-semibold text-neutral-900">Historia wydatków</h1>
@@ -124,6 +131,12 @@ export default async function HistoryPage({
           </span>
           <span className="font-medium text-neutral-900">Suma: {formatPln(total)}</span>
         </div>
+
+        {rows.length > 0 && (
+          <a href={exportHref} className="mb-3 inline-block text-xs text-neutral-500 underline">
+            Eksportuj do CSV
+          </a>
+        )}
 
         {rows.length === 0 ? (
           <p className="text-sm text-neutral-400">Brak wydatków spełniających kryteria.</p>
