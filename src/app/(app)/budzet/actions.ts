@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { and, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
@@ -33,17 +34,22 @@ export async function saveBudgets(formData: FormData) {
   }
 
   const categoryRows: { householdId: string; period: string; categoryId: string; limitAmount: number }[] = [];
+  const clearedCategoryIds: string[] = [];
   for (const [key, value] of formData.entries()) {
     if (!key.startsWith("limit__cat__")) continue;
+    const categoryId = key.replace("limit__cat__", "");
     const raw = String(value).replace(",", ".").trim();
-    if (!raw) continue;
+    if (!raw) {
+      clearedCategoryIds.push(categoryId);
+      continue;
+    }
     const amount = Number(raw);
     if (!Number.isFinite(amount) || amount < 0) continue;
 
     categoryRows.push({
       householdId: household.id,
       period: periodStart,
-      categoryId: key.replace("limit__cat__", ""),
+      categoryId,
       limitAmount: amount,
     });
   }
@@ -56,6 +62,14 @@ export async function saveBudgets(formData: FormData) {
         target: [budgets.householdId, budgets.period, budgets.categoryId],
         set: { limitAmount: row.limitAmount },
       });
+  }
+
+  for (const categoryId of clearedCategoryIds) {
+    await db
+      .delete(budgets)
+      .where(
+        and(eq(budgets.householdId, household.id), eq(budgets.period, periodStart), eq(budgets.categoryId, categoryId)),
+      );
   }
 
   revalidatePath("/budzet");

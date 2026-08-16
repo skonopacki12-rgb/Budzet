@@ -86,27 +86,45 @@ export default async function BudgetPage({
         <div>
           <p className="mb-2 text-sm font-medium text-neutral-700">Limity per kategoria (opcjonalnie)</p>
           <div className="flex flex-col divide-y divide-neutral-100">
-            {categoryRows.map((category) => (
-              <div key={category.id} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="flex items-center gap-2 text-sm text-neutral-800">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: category.color ?? "#a3a3a3" }} />
-                  <div>
-                    <p>{category.name}</p>
-                    <p className="text-xs text-neutral-400">
-                      wydano {formatPln(spentByCategory.get(category.id) ?? 0)}
-                    </p>
+            {categoryRows.map((category) => {
+              const spent = spentByCategory.get(category.id) ?? 0;
+              const limit = limitByCategory.get(category.id);
+              const ratio = limit ? Math.min(spent / limit, 1.5) : null;
+              const tone =
+                ratio == null ? null : ratio < 0.8 ? "bg-emerald-500" : ratio <= 1 ? "bg-amber-500" : "bg-red-500";
+              return (
+                <div key={category.id} className="flex flex-col gap-1.5 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm text-neutral-800">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: category.color ?? "#a3a3a3" }} />
+                      <div>
+                        <p>{category.name}</p>
+                        <p className="text-xs text-neutral-400">
+                          wydano {formatPln(spent)}
+                          {limit != null ? ` z ${formatPln(limit)}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <input
+                      name={`limit__cat__${category.id}`}
+                      type="text"
+                      inputMode="decimal"
+                      defaultValue={limitByCategory.get(category.id) ?? ""}
+                      placeholder="—"
+                      className="w-24 rounded-lg border border-neutral-300 px-2 py-1.5 text-right text-sm outline-none focus:border-neutral-900"
+                    />
                   </div>
+                  {tone && (
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+                      <div
+                        className={`h-full rounded-full ${tone}`}
+                        style={{ width: `${Math.min(((limit ? spent / limit : 0) * 100), 100)}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
-                <input
-                  name={`limit__cat__${category.id}`}
-                  type="text"
-                  inputMode="decimal"
-                  defaultValue={limitByCategory.get(category.id) ?? ""}
-                  placeholder="—"
-                  className="w-24 rounded-lg border border-neutral-300 px-2 py-1.5 text-right text-sm outline-none focus:border-neutral-900"
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
