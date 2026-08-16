@@ -17,7 +17,7 @@ export default async function DashboardPage() {
 
   const { periodStart, periodEnd, daysInMonth, dayOfMonth } = monthPeriod();
 
-  const [monthlyBudget, txRows, categoryRows, dueRecurring] = await Promise.all([
+  const [monthlyBudget, txRows, recentRows, categoryRows, dueRecurring] = await Promise.all([
     db
       .select({ limitAmount: monthlyBudgets.limitAmount })
       .from(monthlyBudgets)
@@ -44,6 +44,22 @@ export default async function DashboardPage() {
         ),
       )
       .orderBy(desc(transactions.occurredOn), desc(transactions.createdAt))
+      .all(),
+    db
+      .select({
+        id: transactions.id,
+        amount: transactions.amount,
+        categoryId: transactions.categoryId,
+        shop: transactions.shop,
+        note: transactions.note,
+        receiptId: transactions.receiptId,
+        occurredOn: transactions.occurredOn,
+        createdAt: transactions.createdAt,
+      })
+      .from(transactions)
+      .where(and(eq(transactions.householdId, household.id), eq(transactions.type, "expense")))
+      .orderBy(desc(transactions.createdAt))
+      .limit(8)
       .all(),
     db.select().from(categories).orderBy(asc(categories.sortOrder)).all(),
     db
@@ -83,7 +99,7 @@ export default async function DashboardPage() {
           ? "bg-amber-500"
           : "bg-red-500";
 
-  const recent = txRows.slice(0, 8);
+  const recent = recentRows;
 
   const today = new Date().toISOString().slice(0, 10);
   const upcomingLimit = new Date();
