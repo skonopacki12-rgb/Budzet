@@ -111,6 +111,31 @@ ${categoryList}
 Jeśli czegoś nie da się ustalić, zostaw puste pole "". Jeśli nie ma żadnych pozycji, zwróć pustą listę "items".`;
 }
 
+/**
+ * With response_format: json_schema, the shape actually returned at runtime
+ * doesn't reliably match the ambient `{ response: string }` type — it may be
+ * the parsed object directly, an object with `.response` already parsed, an
+ * object with `.response` as a JSON string, or (rarely) a bare string. Handle
+ * all of them rather than assume one, since this can't be exercised locally.
+ */
+function extractStructuredObject(result: unknown): Record<string, unknown> {
+  let candidate: unknown = result;
+  if (candidate && typeof candidate === "object" && "response" in candidate) {
+    candidate = (candidate as { response: unknown }).response;
+  }
+  if (typeof candidate === "string") {
+    const match = candidate.match(/\{[\s\S]*\}/);
+    if (!match) {
+      throw new Error("Model AI nie zwrócił poprawnego JSON-a.");
+    }
+    candidate = JSON.parse(match[0]);
+  }
+  if (!candidate || typeof candidate !== "object") {
+    throw new Error("Model AI nie zwrócił poprawnego JSON-a.");
+  }
+  return candidate as Record<string, unknown>;
+}
+
 /** Step 2: a strong text-only model turns the raw transcription into structured, categorized data. */
 async function structureReceipt(
   ai: Ai,
@@ -123,14 +148,7 @@ async function structureReceipt(
     max_tokens: 2048,
   });
 
-  // In json_schema mode the binding's return type is a union (object with
-  // `.response`, or a bare string) — handle either shape.
-  const responseText = typeof result === "string" ? result : ((result as { response?: string }).response ?? "");
-  const match = responseText.match(/\{[\s\S]*\}/);
-  if (!match) {
-    throw new Error("Model AI nie zwrócił poprawnego JSON-a.");
-  }
-  const parsed = JSON.parse(match[0]) as Record<string, unknown>;
+  const parsed = extractStructuredObject(result);
   if (!Array.isArray(parsed.items)) {
     throw new Error("Odpowiedź AI nie zawiera listy pozycji.");
   }
