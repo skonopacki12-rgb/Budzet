@@ -5,4 +5,6 @@
 interface CloudflareEnv {
   /** Set via `wrangler secret put ANTHROPIC_API_KEY` (see README). Used for receipt-scan AI. */
   ANTHROPIC_API_KEY: string;
+  /** Set via `wrangler secret put ANTHROPIC_ADMIN_API_KEY` (see README). Optional — powers the spend display in Ustawienia. */
+  ANTHROPIC_ADMIN_API_KEY: string;
 }

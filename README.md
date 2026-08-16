@@ -210,6 +210,20 @@ Wklej klucz z [console.anthropic.com](https://console.anthropic.com) →
 Settings → API Keys, kiedy zapyta. Trzeba to zrobić raz — sekret zostaje
 zapisany po stronie Cloudflare między deployami.
 
+### 4c. (Opcjonalnie) klucz administracyjny — zużycie Claude w Ustawieniach
+
+Strona `/ustawienia` pokazuje sumę wydaną na Claude w bieżącym miesiącu,
+pobraną z [Usage & Cost API](https://platform.claude.com/docs/en/api/admin-api/usage-cost/get-cost-report).
+To wymaga **osobnego** klucza administracyjnego (format `sk-ant-admin01-...`),
+innego niż `ANTHROPIC_API_KEY` powyżej — dostępnego tylko dla kont
+organizacyjnych w Anthropic Console (Settings → Admin API Keys), nie dla
+kont indywidualnych. Bez tego sekretu reszta aplikacji działa normalnie,
+sekcja zużycia w Ustawieniach pokaże tylko podpowiedź, żeby go skonfigurować:
+
+```bash
+npx wrangler secret put ANTHROPIC_ADMIN_API_KEY
+```
+
 ### Automatyczny deploy przez GitHub Actions
 
 Repo zawiera `.github/workflows/deploy.yml` — na każdy push do `main` (albo
@@ -223,15 +237,18 @@ Workerze.
    istnieć, a `database_id` w `wrangler.jsonc` musi być prawdziwy, nie
    placeholder).
 2. W ustawieniach repo: **Settings → Secrets and variables → Actions → New
-   repository secret**, dodaj dwa sekrety:
+   repository secret**, dodaj sekrety:
    - `CLOUDFLARE_API_TOKEN` — Custom Token (nie gotowy szablon) z
      uprawnieniami: **Account → D1 → Edit**, **Account → Workers Scripts →
      Edit**, **Account → Workers R2 Storage → Edit**.
    - `ANTHROPIC_API_KEY` — klucz z console.anthropic.com (patrz krok 4b
      wyżej — CI ustawia go na Workerze automatycznie z tego sekretu).
+   - `ANTHROPIC_ADMIN_API_KEY` — opcjonalnie, klucz administracyjny (patrz
+     krok 4c wyżej). Jeśli go pominiesz, ten krok w workflow po prostu się
+     nie wykona — reszta deployu przebiega normalnie.
 
-Oba sekrety trzymaj wyłącznie jako sekrety repo — nigdy w kodzie, commitach
-ani w wiadomościach czy issue.
+Wszystkie sekrety trzymaj wyłącznie jako sekrety repo — nigdy w kodzie,
+commitach ani w wiadomościach czy issue.
 
 ### 5. Własna domena (opcjonalnie)
 
@@ -269,7 +286,8 @@ src/lib/auth.ts       hashowanie haseł, sesje, ciasteczka
 src/lib/household.ts  ustalanie aktywnego gospodarstwa + assertHouseholdMember
 src/lib/pin.ts         blokada PIN-em (hash, cookie odblokowania)
 src/lib/receiptAi.ts   wywołanie Claude (fetch + tool_choice) dla skanu paragonów
-src/types/cloudflare-secrets.d.ts  typ ANTHROPIC_API_KEY (dopisany ręcznie, bo to sekret, nie binding)
+src/lib/anthropicUsage.ts  zużycie Claude w bieżącym miesiącu (Usage & Cost API) dla Ustawień
+src/types/cloudflare-secrets.d.ts  typy ANTHROPIC_API_KEY / ANTHROPIC_ADMIN_API_KEY (dopisane ręcznie, bo to sekrety, nie bindingi)
 src/lib/transactions.ts etykieta wydatku na listach (sklep vs. nazwa pozycji z paragonu)
 migrations/           migracje SQL dla D1 (generowane przez drizzle-kit) + seed kategorii
 public/manifest.json, public/sw.js, public/icons/  PWA

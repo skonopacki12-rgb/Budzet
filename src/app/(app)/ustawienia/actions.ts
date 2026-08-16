@@ -2,9 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { and, eq } from "drizzle-orm";
 import { destroyUserSession, getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { getActiveHousehold } from "@/lib/household";
 import { clearPin, markUnlocked, resetUnlock, setPin, verifyPin } from "@/lib/pin";
+import { households, householdMembers } from "@/db/schema";
 
 const PIN_PATTERN = /^\d{4,6}$/;
 
@@ -51,4 +54,49 @@ export async function removePin(formData: FormData) {
 
   revalidatePath("/ustawienia");
   redirect("/ustawienia?pin_removed=1");
+}
+
+export async function updateHouseholdName(formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) {
+    throw new Error("Nazwa nie może być pusta.");
+  }
+
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
+  if (!household) redirect("/onboarding");
+
+  await db.update(households).set({ name }).where(eq(households.id, household.id));
+
+  revalidatePath("/ustawienia");
+  redirect("/ustawienia?name_saved=1");
+}
+
+export async function removeMember(formData: FormData) {
+  const memberUserId = String(formData.get("user_id") ?? "");
+  if (!memberUserId) return;
+
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
+  if (!household) redirect("/onboarding");
+
+  if (household.role !== "owner") {
+    throw new Error("Tylko właściciel gospodarstwa może usuwać członków.");
+  }
+  if (memberUserId === user.id) {
+    throw new Error("Nie możesz usunąć samego siebie.");
+  }
+
+  await db
+    .delete(householdMembers)
+    .where(and(eq(householdMembers.householdId, household.id), eq(householdMembers.userId, memberUserId)));
+
+  revalidatePath("/ustawienia");
+  redirect("/ustawienia?member_removed=1");
 }

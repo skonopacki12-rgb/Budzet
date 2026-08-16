@@ -1,19 +1,27 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { count, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { getDb, getEnv } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
 import { hasPinSet } from "@/lib/pin";
-import { householdMembers } from "@/db/schema";
-import { removePin, savePin, signOut } from "./actions";
+import { getCurrentMonthCostUsd } from "@/lib/anthropicUsage";
+import { householdMembers, users } from "@/db/schema";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { removeMember, removePin, savePin, signOut, updateHouseholdName } from "./actions";
 
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pin_saved?: string; pin_removed?: string }>;
+  searchParams: Promise<{
+    pin_saved?: string;
+    pin_removed?: string;
+    name_saved?: string;
+    member_removed?: string;
+  }>;
 }) {
-  const { pin_saved: pinSaved, pin_removed: pinRemoved } = await searchParams;
+  const { pin_saved: pinSaved, pin_removed: pinRemoved, name_saved: nameSaved, member_removed: memberRemoved } =
+    await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -21,11 +29,29 @@ export default async function SettingsPage({
   const household = await getActiveHousehold(db, user.id);
   if (!household) redirect("/onboarding");
 
-  const [memberCountRow, pinSet] = await Promise.all([
-    db.select({ value: count() }).from(householdMembers).where(eq(householdMembers.householdId, household.id)).get(),
+  const [memberRows, pinSet, env] = await Promise.all([
+    db
+      .select({ userId: householdMembers.userId, role: householdMembers.role, email: users.email })
+      .from(householdMembers)
+      .innerJoin(users, eq(users.id, householdMembers.userId))
+      .where(eq(householdMembers.householdId, household.id))
+      .orderBy(asc(householdMembers.joinedAt))
+      .all(),
     hasPinSet(db, user.id),
+    getEnv(),
   ]);
-  const memberCount = memberCountRow?.value ?? 1;
+
+  let claudeUsageUsd: number | null = null;
+  let claudeUsageError: string | null = null;
+  if (env.ANTHROPIC_ADMIN_API_KEY) {
+    try {
+      claudeUsageUsd = await getCurrentMonthCostUsd(env.ANTHROPIC_ADMIN_API_KEY);
+    } catch {
+      claudeUsageError = "Nie udało się pobrać danych o zużyciu.";
+    }
+  } else {
+    claudeUsageError = "Skonfiguruj sekret ANTHROPIC_ADMIN_API_KEY, żeby zobaczyć zużycie (patrz README).";
+  }
 
   return (
     <div className="flex flex-col gap-6 pt-2 md:max-w-xl">
@@ -38,13 +64,61 @@ export default async function SettingsPage({
 
       <section className="rounded-2xl border border-neutral-200 p-4 text-sm">
         <p className="text-xs text-neutral-400">Gospodarstwo domowe</p>
-        <p className="font-medium text-neutral-900">{household.name}</p>
-        <p className="mt-1 text-neutral-500">
-          {memberCount} {memberCount === 1 ? "osoba" : "osoby"} · waluta {household.currency}
+        {nameSaved && <p className="mt-1 text-sm text-emerald-700">Nazwa zapisana.</p>}
+        <form action={updateHouseholdName} className="mt-1 flex items-center gap-2">
+          <input
+            name="name"
+            defaultValue={household.name}
+            required
+            className="min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
+          />
+          <button
+            type="submit"
+            className="shrink-0 rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white"
+          >
+            Zapisz
+          </button>
+        </form>
+        <p className="mt-3 text-neutral-500">
+          {memberRows.length} {memberRows.length === 1 ? "osoba" : "osoby"} · waluta {household.currency}
         </p>
+
+        {memberRemoved && <p className="mt-2 text-sm text-emerald-700">Członek usunięty.</p>}
+
+        <ul className="mt-2 flex flex-col gap-2 border-t border-neutral-100 pt-3">
+          {memberRows.map((member) => (
+            <li key={member.userId} className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-neutral-800">
+                {member.email}
+                {member.role === "owner" && <span className="text-xs text-neutral-400"> (właściciel)</span>}
+              </span>
+              {household.role === "owner" && member.userId !== user.id && (
+                <form action={removeMember} className="shrink-0">
+                  <input type="hidden" name="user_id" value={member.userId} />
+                  <ConfirmButton
+                    confirmMessage={`Usunąć ${member.email} z gospodarstwa?`}
+                    className="text-xs text-red-600 underline"
+                  >
+                    Usuń
+                  </ConfirmButton>
+                </form>
+              )}
+            </li>
+          ))}
+        </ul>
+
         <Link href="/onboarding" className="mt-3 inline-block text-sm text-neutral-700 underline">
           Zaproś partnera
         </Link>
+      </section>
+
+      <section className="rounded-2xl border border-neutral-200 p-4 text-sm">
+        <p className="text-xs text-neutral-400">Zużycie Claude (skan paragonów) w tym miesiącu</p>
+        {claudeUsageError ? (
+          <p className="mt-1 text-neutral-500">{claudeUsageError}</p>
+        ) : (
+          <p className="mt-1 text-2xl font-semibold text-neutral-900">${claudeUsageUsd!.toFixed(2)}</p>
+        )}
       </section>
 
       <section className="rounded-2xl border border-neutral-200 p-4 text-sm">
