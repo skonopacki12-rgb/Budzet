@@ -34,7 +34,7 @@ export function PriceHistoryChart({ entries }: { entries: PriceHistoryEntry[] })
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {storesInOrder.map((store) => (
-          <span key={store} className="flex items-center gap-1.5 text-xs text-neutral-500">
+          <span key={store} className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: storeColor(store, storesInOrder) }} />
             {store}
           </span>

@@ -19,8 +19,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col md:max-w-2xl lg:max-w-3xl xl:max-w-4xl">
       <header className="flex items-center justify-between px-4 py-3 md:px-6 lg:px-8">
         <div>
-          <p className="text-xs text-neutral-400">Gospodarstwo domowe</p>
-          <p className="text-sm font-medium text-neutral-900">{household.name}</p>
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">Gospodarstwo domowe</p>
+          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{household.name}</p>
         </div>
       </header>
       <InstallHint />

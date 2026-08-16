@@ -39,14 +39,14 @@ export default async function EditTransactionPage({ params }: { params: Promise<
   return (
     <div className="flex flex-col gap-6 pt-2 md:max-w-md">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-neutral-900">Edytuj wydatek</h1>
-        <Link href="/historia" className="text-sm text-neutral-500 underline">
+        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Edytuj wydatek</h1>
+        <Link href="/historia" className="text-sm text-neutral-500 dark:text-neutral-400 underline">
           Wróć
         </Link>
       </div>
 
       {transaction.receiptId && (
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
           Ten wydatek pochodzi ze skanu paragonu — zmiany tutaj nie wpływają na zapisany paragon.
         </p>
       )}

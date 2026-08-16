@@ -64,10 +64,10 @@ export default async function HistoryPage({
 
   return (
     <div className="flex flex-col gap-6 pt-2">
-      <h1 className="text-xl font-semibold text-neutral-900">Historia wydatków</h1>
+      <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Historia wydatków</h1>
 
       {edited && (
-        <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Zmiany zapisane.</div>
+        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">Zmiany zapisane.</div>
       )}
 
       <form className="flex flex-col gap-3">
@@ -76,13 +76,13 @@ export default async function HistoryPage({
           type="text"
           defaultValue={q}
           placeholder="Szukaj po sklepie lub notatce"
-          className="rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
+          className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2 text-base outline-none focus:border-neutral-900 dark:focus:border-neutral-100"
         />
 
         <select
           name="category_id"
           defaultValue={categoryId ?? ""}
-          className="rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
+          className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2 text-base outline-none focus:border-neutral-900 dark:focus:border-neutral-100"
         >
           <option value="">Wszystkie kategorie</option>
           {categoryRows.map((category) => (
@@ -93,34 +93,34 @@ export default async function HistoryPage({
         </select>
 
         <div className="flex gap-2">
-          <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-500">
+          <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-500 dark:text-neutral-400">
             Od
             <input
               name="from"
               type="date"
               defaultValue={from}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+              className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm outline-none focus:border-neutral-900 dark:focus:border-neutral-100"
             />
           </label>
-          <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-500">
+          <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-500 dark:text-neutral-400">
             Do
             <input
               name="to"
               type="date"
               defaultValue={to}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+              className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm outline-none focus:border-neutral-900 dark:focus:border-neutral-100"
             />
           </label>
         </div>
 
         <div className="flex gap-2">
-          <button type="submit" className="flex-1 rounded-lg bg-neutral-900 px-3 py-2.5 text-sm font-medium text-white">
+          <button type="submit" className="flex-1 rounded-lg bg-neutral-900 dark:bg-neutral-100 px-3 py-2.5 text-sm font-medium text-white dark:text-neutral-900">
             Szukaj
           </button>
           {hasFilters && (
             <Link
               href="/historia"
-              className="rounded-lg border border-neutral-300 px-3 py-2.5 text-sm font-medium text-neutral-700"
+              className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2.5 text-sm font-medium text-neutral-700 dark:text-neutral-300"
             >
               Wyczyść
             </Link>
@@ -130,44 +130,44 @@ export default async function HistoryPage({
 
       <section>
         <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="text-neutral-500">
+          <span className="text-neutral-500 dark:text-neutral-400">
             {rows.length} {rows.length === 1 ? "wynik" : "wyników"}
             {rows.length === RESULT_LIMIT ? " (pokazano pierwsze " + RESULT_LIMIT + ")" : ""}
           </span>
-          <span className="font-medium text-neutral-900">Suma: {formatPln(total)}</span>
+          <span className="font-medium text-neutral-900 dark:text-neutral-100">Suma: {formatPln(total)}</span>
         </div>
 
         {rows.length > 0 && (
-          <a href={exportHref} className="mb-3 inline-block text-xs text-neutral-500 underline">
+          <a href={exportHref} className="mb-3 inline-block text-xs text-neutral-500 dark:text-neutral-400 underline">
             Eksportuj do CSV
           </a>
         )}
 
         {rows.length === 0 ? (
-          <p className="text-sm text-neutral-400">Brak wydatków spełniających kryteria.</p>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">Brak wydatków spełniających kryteria.</p>
         ) : (
-          <ul className="flex flex-col divide-y divide-neutral-100">
+          <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
             {rows.map((transaction) => {
               const category = transaction.categoryId ? categoryById.get(transaction.categoryId) : undefined;
               return (
                 <li key={transaction.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <div className="min-w-0">
-                    <p className="truncate text-neutral-900">{transactionLabel(transaction, category)}</p>
-                    <p className="text-xs text-neutral-400">
+                    <p className="truncate text-neutral-900 dark:text-neutral-100">{transactionLabel(transaction, category)}</p>
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500">
                       {new Date(transaction.occurredOn).toLocaleDateString("pl-PL")}
                       {category ? ` · ${category.name}` : ""}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="font-medium text-neutral-900">{formatPln(transaction.amount)}</span>
-                    <Link href={`/historia/${transaction.id}/edytuj`} className="text-xs font-medium text-neutral-600 underline">
+                    <span className="font-medium text-neutral-900 dark:text-neutral-100">{formatPln(transaction.amount)}</span>
+                    <Link href={`/historia/${transaction.id}/edytuj`} className="text-xs font-medium text-neutral-600 dark:text-neutral-300 underline">
                       Edytuj
                     </Link>
                     <form action={deleteTransaction}>
                       <input type="hidden" name="id" value={transaction.id} />
                       <ConfirmButton
                         confirmMessage="Usunąć ten wydatek?"
-                        className="text-xs font-medium text-red-600"
+                        className="text-xs font-medium text-red-600 dark:text-red-400"
                       >
                         Usuń
                       </ConfirmButton>

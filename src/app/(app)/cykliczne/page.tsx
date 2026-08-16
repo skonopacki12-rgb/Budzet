@@ -52,15 +52,15 @@ export default async function RecurringExpensesPage() {
   return (
     <div className="flex flex-col gap-6 pt-2">
       <div className="flex flex-col gap-1.5">
-        <h1 className="text-xl font-semibold text-neutral-900">Wydatki cykliczne</h1>
-        <Link href="/budzet" className="text-sm text-neutral-500 underline self-start">
+        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Wydatki cykliczne</h1>
+        <Link href="/budzet" className="text-sm text-neutral-500 dark:text-neutral-400 underline self-start">
           Budżet
         </Link>
       </div>
 
       <section>
         {recurringRows.length === 0 ? (
-          <p className="text-sm text-neutral-400">Brak wydatków cyklicznych — dodaj pierwszy poniżej.</p>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">Brak wydatków cyklicznych — dodaj pierwszy poniżej.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {recurringRows.map((recurring) => {
@@ -71,29 +71,29 @@ export default async function RecurringExpensesPage() {
                 <li
                   key={recurring.id}
                   className={`rounded-2xl border p-4 ${
-                    recurring.active ? "border-neutral-200" : "border-neutral-100 opacity-60"
+                    recurring.active ? "border-neutral-200 dark:border-neutral-800" : "border-neutral-100 dark:border-neutral-800 opacity-60"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium text-neutral-900">{recurring.name}</p>
-                      <p className="text-xs text-neutral-500">
+                      <p className="font-medium text-neutral-900 dark:text-neutral-100">{recurring.name}</p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
                         {category?.name ?? "Bez kategorii"} · {CYCLE_LABELS[recurring.cycle]}
                         {recurring.cycle === "custom_days" && recurring.customDays
                           ? ` (${recurring.customDays} dni)`
                           : ""}
                       </p>
                     </div>
-                    <span className="text-lg font-semibold text-neutral-900">{formatPln(recurring.amount)}</span>
+                    <span className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{formatPln(recurring.amount)}</span>
                   </div>
 
-                  <p className={`mt-2 text-xs ${overdue ? "font-medium text-red-600" : "text-neutral-500"}`}>
+                  <p className={`mt-2 text-xs ${overdue ? "font-medium text-red-600 dark:text-red-400" : "text-neutral-500 dark:text-neutral-400"}`}>
                     {recurring.active
                       ? `${overdue ? "Zaległe od" : "Następna płatność"}: ${new Date(recurring.nextDueDate).toLocaleDateString("pl-PL")}`
                       : "Wstrzymane"}
                   </p>
                   {recurring.contractEndDate && (
-                    <p className="mt-0.5 text-xs text-neutral-400">
+                    <p className="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500">
                       Umowa do {new Date(recurring.contractEndDate).toLocaleDateString("pl-PL")}
                     </p>
                   )}
@@ -104,7 +104,7 @@ export default async function RecurringExpensesPage() {
                         <input type="hidden" name="id" value={recurring.id} />
                         <button
                           type="submit"
-                          className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white"
+                          className="rounded-lg bg-neutral-900 dark:bg-neutral-100 px-3 py-1.5 text-xs font-medium text-white dark:text-neutral-900"
                         >
                           Zapłacone
                         </button>
@@ -114,7 +114,7 @@ export default async function RecurringExpensesPage() {
                       <input type="hidden" name="id" value={recurring.id} />
                       <button
                         type="submit"
-                        className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700"
+                        className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300"
                       >
                         {recurring.active ? "Wstrzymaj" : "Wznów"}
                       </button>
@@ -123,7 +123,7 @@ export default async function RecurringExpensesPage() {
                       <input type="hidden" name="id" value={recurring.id} />
                       <ConfirmButton
                         confirmMessage={`Usunąć „${recurring.name}”?`}
-                        className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600"
+                        className="rounded-lg border border-red-200 dark:border-red-800 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400"
                       >
                         Usuń
                       </ConfirmButton>
@@ -136,8 +136,8 @@ export default async function RecurringExpensesPage() {
         )}
       </section>
 
-      <section className="flex flex-col gap-4 border-t border-neutral-100 pt-6 md:max-w-md">
-        <h2 className="text-sm font-medium text-neutral-700">Dodaj wydatek cykliczny</h2>
+      <section className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-6 md:max-w-md">
+        <h2 className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Dodaj wydatek cykliczny</h2>
         <RecurringExpenseForm categories={categoryRows} subcategories={subcategoryRows} action={addRecurringExpense} />
       </section>
     </div>

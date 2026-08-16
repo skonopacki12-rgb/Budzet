@@ -87,39 +87,39 @@ export default async function PricesPage({
     return (
       <div className="flex flex-col gap-6 pt-2">
         <div className="flex flex-col gap-1.5">
-          <h1 className="text-xl font-semibold text-neutral-900">{selected.displayName}</h1>
+          <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">{selected.displayName}</h1>
           <div className="flex flex-wrap gap-x-3 gap-y-1">
-            <Link href="/ceny" className="text-sm text-neutral-500 underline">
+            <Link href="/ceny" className="text-sm text-neutral-500 dark:text-neutral-400 underline">
               Wszystkie produkty
             </Link>
-            <Link href="/budzet" className="text-sm text-neutral-500 underline">
+            <Link href="/budzet" className="text-sm text-neutral-500 dark:text-neutral-400 underline">
               Budżet
             </Link>
           </div>
         </div>
 
-        <section className="rounded-2xl border border-neutral-200 p-4">
-          <p className="text-xs text-neutral-400">
+        <section className="rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4">
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">
             {selected.entries.length} {selected.entries.length === 1 ? "zakup" : "zakupów"} ·{" "}
             {storesInOrder.length} {storesInOrder.length === 1 ? "sklep" : "sklepy"}
           </p>
-          <p className="mt-1 text-2xl font-semibold text-neutral-900">
+          <p className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
             {formatPln(selectedEntriesDesc[0].price)}
           </p>
-          <p className="mt-1 text-sm text-neutral-500">
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
             ostatnio {new Date(selectedEntriesDesc[0].date).toLocaleDateString("pl-PL")} w{" "}
             {selectedEntriesDesc[0].store}
           </p>
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-medium text-neutral-700">Cena w czasie, wg sklepu</h2>
+          <h2 className="mb-3 text-sm font-medium text-neutral-700 dark:text-neutral-300">Cena w czasie, wg sklepu</h2>
           <PriceHistoryChart entries={selected.entries} />
         </section>
 
         <section>
-          <h2 className="mb-2 text-sm font-medium text-neutral-700">Historia zakupów</h2>
-          <ul className="flex flex-col divide-y divide-neutral-100">
+          <h2 className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Historia zakupów</h2>
+          <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
             {selectedEntriesDesc.map((entry, index) => (
               <li key={index} className="flex items-center justify-between py-2 text-sm">
                 <div className="flex items-center gap-2">
@@ -128,11 +128,11 @@ export default async function PricesPage({
                     style={{ backgroundColor: storeColor(entry.store, storesInOrder) }}
                   />
                   <div>
-                    <p className="text-neutral-900">{entry.store}</p>
-                    <p className="text-xs text-neutral-400">{new Date(entry.date).toLocaleDateString("pl-PL")}</p>
+                    <p className="text-neutral-900 dark:text-neutral-100">{entry.store}</p>
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500">{new Date(entry.date).toLocaleDateString("pl-PL")}</p>
                   </div>
                 </div>
-                <span className="font-medium text-neutral-900">{formatPln(entry.price)}</span>
+                <span className="font-medium text-neutral-900 dark:text-neutral-100">{formatPln(entry.price)}</span>
               </li>
             ))}
           </ul>
@@ -144,13 +144,13 @@ export default async function PricesPage({
   return (
     <div className="flex flex-col gap-6 pt-2">
       <div className="flex flex-col gap-1.5">
-        <h1 className="text-xl font-semibold text-neutral-900">Ceny produktów</h1>
-        <Link href="/budzet" className="text-sm text-neutral-500 underline self-start">
+        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Ceny produktów</h1>
+        <Link href="/budzet" className="text-sm text-neutral-500 dark:text-neutral-400 underline self-start">
           Budżet
         </Link>
       </div>
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Historia cen z potwierdzonych pozycji paragonów — do porównania, czy ten sam produkt drożeje i w którym
         sklepie jest taniej.
       </p>
@@ -161,21 +161,21 @@ export default async function PricesPage({
           type="text"
           defaultValue={q ?? ""}
           placeholder="Szukaj produktu…"
-          className="min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
+          className="min-w-0 flex-1 rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2 text-base outline-none focus:border-neutral-900 dark:focus:border-neutral-100"
         />
-        <button type="submit" className="shrink-0 rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white">
+        <button type="submit" className="shrink-0 rounded-lg bg-neutral-900 dark:bg-neutral-100 px-3 py-2 text-sm font-medium text-white dark:text-neutral-900">
           Szukaj
         </button>
       </form>
 
       {products.length === 0 ? (
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm text-neutral-400 dark:text-neutral-500">
           Brak jeszcze danych — ceny pojawią się tu po potwierdzeniu pozycji ze skanu paragonu.
         </p>
       ) : filteredProducts.length === 0 ? (
-        <p className="text-sm text-neutral-400">Nic nie pasuje do „{q}”.</p>
+        <p className="text-sm text-neutral-400 dark:text-neutral-500">Nic nie pasuje do „{q}”.</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-neutral-100">
+        <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
           {filteredProducts.map((product) => (
             <li key={product.key}>
               <Link
@@ -183,15 +183,15 @@ export default async function PricesPage({
                 className="flex items-center justify-between gap-3 py-3"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-neutral-900">{product.displayName}</p>
-                  <p className="text-xs text-neutral-400">
+                  <p className="truncate text-sm text-neutral-900 dark:text-neutral-100">{product.displayName}</p>
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500">
                     {product.count} {product.count === 1 ? "zakup" : "zakupów"} · {product.storeCount}{" "}
                     {product.storeCount === 1 ? "sklep" : "sklepy"}
                     {product.minPrice !== product.maxPrice &&
                       ` · ${formatPln(product.minPrice)}–${formatPln(product.maxPrice)}`}
                   </p>
                 </div>
-                <span className="shrink-0 text-sm font-medium text-neutral-900">{formatPln(product.lastPrice)}</span>
+                <span className="shrink-0 text-sm font-medium text-neutral-900 dark:text-neutral-100">{formatPln(product.lastPrice)}</span>
               </Link>
             </li>
           ))}

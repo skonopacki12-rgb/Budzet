@@ -59,7 +59,7 @@ export function ReceiptUploadForm({ action }: { action: (formData: FormData) => 
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <label className="flex flex-col gap-1 text-sm text-neutral-700">
+      <label className="flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
         Zdjęcie paragonu
         <input
           name="image"
@@ -67,14 +67,14 @@ export function ReceiptUploadForm({ action }: { action: (formData: FormData) => 
           accept="image/*"
           capture="environment"
           required
-          className="rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-neutral-900"
+          className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2.5 text-sm outline-none focus:border-neutral-900 dark:focus:border-neutral-100"
         />
       </label>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       <button
         type="submit"
         disabled={pending}
-        className="rounded-lg bg-neutral-900 px-3 py-3 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded-lg bg-neutral-900 dark:bg-neutral-100 px-3 py-3 text-sm font-medium text-white dark:text-neutral-900 disabled:opacity-50"
       >
         {pending ? "Analizuję paragon… (może potrwać kilkanaście sekund)" : "Analizuj paragon"}
       </button>

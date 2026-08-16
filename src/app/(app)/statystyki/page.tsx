@@ -77,16 +77,16 @@ export default async function StatsPage() {
   return (
     <div className="flex flex-col gap-6 pt-2">
       <div className="flex flex-col gap-1.5">
-        <h1 className="text-xl font-semibold text-neutral-900">Statystyki</h1>
-        <Link href="/budzet" className="text-sm text-neutral-500 underline self-start">
+        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Statystyki</h1>
+        <Link href="/budzet" className="text-sm text-neutral-500 dark:text-neutral-400 underline self-start">
           Budżet
         </Link>
       </div>
 
-      <section className="rounded-2xl border border-neutral-200 p-4">
-        <p className="text-xs text-neutral-400">Ten miesiąc vs poprzedni</p>
-        <p className="mt-1 text-2xl font-semibold text-neutral-900">{formatPln(currentMonthTotal)}</p>
-        <p className={`mt-1 text-sm ${monthDelta > 0 ? "text-red-600" : monthDelta < 0 ? "text-emerald-600" : "text-neutral-500"}`}>
+      <section className="rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4">
+        <p className="text-xs text-neutral-400 dark:text-neutral-500">Ten miesiąc vs poprzedni</p>
+        <p className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{formatPln(currentMonthTotal)}</p>
+        <p className={`mt-1 text-sm ${monthDelta > 0 ? "text-red-600 dark:text-red-400" : monthDelta < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-neutral-500 dark:text-neutral-400"}`}>
           {monthDelta === 0
             ? "Tyle samo co w poprzednim miesiącu."
             : `${monthDelta > 0 ? "+" : ""}${formatPln(monthDelta)}${monthDeltaPct != null ? ` (${monthDelta > 0 ? "+" : ""}${monthDeltaPct.toFixed(0)}%)` : ""} vs poprzedni miesiąc`}
@@ -94,7 +94,7 @@ export default async function StatsPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-medium text-neutral-700">Ostatnie {MONTHS_BACK} miesięcy</h2>
+        <h2 className="mb-3 text-sm font-medium text-neutral-700 dark:text-neutral-300">Ostatnie {MONTHS_BACK} miesięcy</h2>
         {/* Bars and labels are separate rows on purpose: a bar's percentage
             height only resolves against a parent with a *definite* height,
             and nesting the label in the same flex-col item (sized by content,
@@ -104,7 +104,7 @@ export default async function StatsPage() {
           {monthBars.map(({ key, total }) => (
             <div key={key} className="flex flex-1 flex-col justify-end">
               <div
-                className="w-full rounded-t bg-neutral-900"
+                className="w-full rounded-t bg-neutral-900 dark:bg-neutral-100"
                 style={{ height: `${maxMonthTotal ? Math.max((total / maxMonthTotal) * 100, total > 0 ? 4 : 0) : 0}%` }}
                 title={formatPln(total)}
               />
@@ -113,20 +113,20 @@ export default async function StatsPage() {
         </div>
         <div className="mt-1 flex gap-1.5">
           {monthBars.map(({ key }) => (
-            <span key={key} className="flex-1 text-center text-[10px] text-neutral-400">
+            <span key={key} className="flex-1 text-center text-[10px] text-neutral-400 dark:text-neutral-500">
               {monthLabel(key)}
             </span>
           ))}
         </div>
       </section>
 
-      <section className="rounded-2xl border border-neutral-200 p-4">
-        <p className="text-xs text-neutral-400">Rok {currentYear} vs {currentYear - 1}</p>
-        <p className="mt-1 text-2xl font-semibold text-neutral-900">{formatPln(thisYearTotal)}</p>
-        <p className="mt-1 text-sm text-neutral-500">
+      <section className="rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4">
+        <p className="text-xs text-neutral-400 dark:text-neutral-500">Rok {currentYear} vs {currentYear - 1}</p>
+        <p className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{formatPln(thisYearTotal)}</p>
+        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
           {currentYear - 1}: {formatPln(lastYearTotal)}
           {lastYearTotal > 0 && (
-            <span className={yearDelta > 0 ? "text-red-600" : yearDelta < 0 ? "text-emerald-600" : ""}>
+            <span className={yearDelta > 0 ? "text-red-600 dark:text-red-400" : yearDelta < 0 ? "text-emerald-600 dark:text-emerald-400" : ""}>
               {" "}
               ({yearDelta > 0 ? "+" : ""}
               {yearDeltaPct != null ? yearDeltaPct.toFixed(0) : "0"}%)
@@ -136,21 +136,21 @@ export default async function StatsPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-medium text-neutral-700">Top kategorie w {currentYear} roku</h2>
+        <h2 className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Top kategorie w {currentYear} roku</h2>
         {topCategories.length === 0 ? (
-          <p className="text-sm text-neutral-400">Brak wydatków w tym roku.</p>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">Brak wydatków w tym roku.</p>
         ) : (
           <ul className="flex flex-col gap-2.5">
             {topCategories.map(({ category, spent }) => (
               <li key={category?.id ?? "inne"}>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-neutral-800">
+                  <span className="flex items-center gap-2 text-neutral-800 dark:text-neutral-200">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: category?.color ?? "#a3a3a3" }} />
                     {category?.name ?? "Inne"}
                   </span>
-                  <span className="font-medium text-neutral-900">{formatPln(spent)}</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{formatPln(spent)}</span>
                 </div>
-                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
                   <div
                     className="h-full rounded-full"
                     style={{
