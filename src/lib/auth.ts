@@ -6,7 +6,9 @@ import { sessions, users } from "@/db/schema";
 
 const SESSION_COOKIE = "budzet_session";
 const SESSION_TTL_DAYS = 30;
-const PBKDF2_ITERATIONS = 210_000;
+// workerd (Cloudflare Workers' WebCrypto implementation) caps PBKDF2 at
+// 100_000 iterations; higher counts throw NotSupportedError at runtime.
+const PBKDF2_ITERATIONS = 100_000;
 
 function toHex(bytes: ArrayBuffer | Uint8Array): string {
   const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
