@@ -1,7 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Category, ReceiptItem, Subcategory } from "@/db/schema";
+import { formatPln } from "@/lib/date";
+
+interface RowState {
+  included: boolean;
+  categoryId: string;
+  subcategoryId: string;
+  price: string;
+}
+
+function parsePriceLocal(text: string): number {
+  const normalized = text.replace(",", ".").replace(/[^\d.-]/g, "");
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : 0;
+}
 
 export function ReceiptItemsForm({
   receiptId,
@@ -16,18 +30,48 @@ export function ReceiptItemsForm({
   subcategories: Subcategory[];
   action: (formData: FormData) => void;
 }) {
-  const [categoryByItem, setCategoryByItem] = useState<Record<string, string>>(() =>
-    Object.fromEntries(items.map((item) => [item.id, item.categoryId ?? categories[0]?.id ?? ""])),
+  const [rows, setRows] = useState<Record<string, RowState>>(() =>
+    Object.fromEntries(
+      items.map((item) => [
+        item.id,
+        {
+          included: true,
+          categoryId: item.categoryId ?? categories[0]?.id ?? "",
+          subcategoryId: item.subcategoryId ?? "",
+          price: item.totalPrice.toString().replace(".", ","),
+        },
+      ]),
+    ),
   );
+
+  function updateRow(id: string, patch: Partial<RowState>) {
+    setRows((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }
+
+  const categoryTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const item of items) {
+      const row = rows[item.id];
+      if (!row?.included) continue;
+      totals.set(row.categoryId, (totals.get(row.categoryId) ?? 0) + parsePriceLocal(row.price));
+    }
+    return totals;
+  }, [rows, items]);
+
+  const grandTotal = [...categoryTotals.values()].reduce((sum, value) => sum + value, 0);
 
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="receipt_id" value={receiptId} />
 
+      <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        To jeszcze nie jest zapisane w budżecie — sprawdź pozycje poniżej i kliknij „Zatwierdź”.
+      </div>
+
       <ul className="flex flex-col gap-4">
         {items.map((item) => {
-          const selectedCategory = categoryByItem[item.id] ?? "";
-          const subcategoryOptions = subcategories.filter((sub) => sub.categoryId === selectedCategory);
+          const row = rows[item.id];
+          const subcategoryOptions = subcategories.filter((sub) => sub.categoryId === row.categoryId);
 
           return (
             <li key={item.id} className="rounded-2xl border border-neutral-200 p-3">
@@ -35,7 +79,8 @@ export function ReceiptItemsForm({
                 <input
                   type="checkbox"
                   name={`item__${item.id}__include`}
-                  defaultChecked
+                  checked={row.included}
+                  onChange={(event) => updateRow(item.id, { included: event.target.checked })}
                   className="mt-0.5"
                 />
                 <span className="flex-1 text-neutral-900">{item.rawName}</span>
@@ -45,10 +90,8 @@ export function ReceiptItemsForm({
                 <div className="flex gap-2">
                   <select
                     name={`item__${item.id}__category_id`}
-                    value={selectedCategory}
-                    onChange={(event) =>
-                      setCategoryByItem((prev) => ({ ...prev, [item.id]: event.target.value }))
-                    }
+                    value={row.categoryId}
+                    onChange={(event) => updateRow(item.id, { categoryId: event.target.value, subcategoryId: "" })}
                     className="flex-1 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-neutral-900"
                   >
                     {categories.map((category) => (
@@ -61,7 +104,8 @@ export function ReceiptItemsForm({
                     name={`item__${item.id}__total_price`}
                     type="text"
                     inputMode="decimal"
-                    defaultValue={item.totalPrice.toString().replace(".", ",")}
+                    value={row.price}
+                    onChange={(event) => updateRow(item.id, { price: event.target.value })}
                     className="w-24 rounded-lg border border-neutral-300 px-2 py-1.5 text-right text-sm outline-none focus:border-neutral-900"
                   />
                 </div>
@@ -69,7 +113,8 @@ export function ReceiptItemsForm({
                 {subcategoryOptions.length > 0 && (
                   <select
                     name={`item__${item.id}__subcategory_id`}
-                    defaultValue={item.subcategoryId ?? ""}
+                    value={row.subcategoryId}
+                    onChange={(event) => updateRow(item.id, { subcategoryId: event.target.value })}
                     className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-neutral-900"
                   >
                     <option value="">Bez podkategorii</option>
@@ -89,6 +134,35 @@ export function ReceiptItemsForm({
       <p className="text-xs text-neutral-400">
         Odznacz pozycję, jeśli AI błędnie ją rozpoznała — nie zostanie zapisana jako wydatek.
       </p>
+
+      <section className="rounded-2xl border border-neutral-200 p-3">
+        <h3 className="mb-2 text-sm font-medium text-neutral-700">Podsumowanie po kategoriach</h3>
+        {categoryTotals.size === 0 ? (
+          <p className="text-sm text-neutral-400">Brak zaznaczonych pozycji.</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-neutral-100 text-sm">
+            {[...categoryTotals.entries()].map(([categoryId, sum]) => {
+              const category = categories.find((c) => c.id === categoryId);
+              return (
+                <li key={categoryId} className="flex items-center justify-between py-1.5">
+                  <span className="flex items-center gap-2 text-neutral-800">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: category?.color ?? "#a3a3a3" }}
+                    />
+                    {category?.name ?? "Bez kategorii"}
+                  </span>
+                  <span className="font-medium text-neutral-900">{formatPln(sum)}</span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="mt-2 flex items-center justify-between border-t border-neutral-200 pt-2 text-sm font-semibold text-neutral-900">
+          <span>Razem</span>
+          <span>{formatPln(grandTotal)}</span>
+        </div>
+      </section>
 
       <button type="submit" className="rounded-lg bg-neutral-900 px-3 py-3 text-sm font-medium text-white">
         Zatwierdź i zapisz jako wydatki
