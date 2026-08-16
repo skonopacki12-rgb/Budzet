@@ -1,18 +1,9 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	// worker-entry.ts wraps the OpenNext-generated .open-next/worker.js so we
-	// can add a `scheduled` handler (see "triggers" below) for push-notification
-	// checks alongside the normal fetch handler.
-	"main": "worker-entry.ts",
+	"main": ".open-next/worker.js",
 	"name": "budzet",
 	"compatibility_date": "2026-08-15",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-	"triggers": {
-		// Once an hour — checks for recurring payments due within 3 days and
-		// households over 80% of their monthly budget, and pushes at most one
-		// notification per household per event (see src/lib/pushChecks.ts).
-		"crons": ["0 * * * *"]
-	},
 	"assets": {
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"

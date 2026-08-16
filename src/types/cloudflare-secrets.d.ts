@@ -5,9 +5,4 @@
 interface CloudflareEnv {
   /** Set via `wrangler secret put ANTHROPIC_API_KEY` (see README). Used for receipt-scan AI. */
   ANTHROPIC_API_KEY: string;
-  /** VAPID key pair for Web Push, generated once with `npx web-push generate-vapid-keys` (see README). */
-  VAPID_PUBLIC_KEY: string;
-  VAPID_PRIVATE_KEY: string;
-  /** "mailto:you@example.com" — required by the Web Push protocol as a contact for push services. */
-  VAPID_SUBJECT: string;
 }

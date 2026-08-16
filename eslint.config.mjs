@@ -15,9 +15,6 @@ const eslintConfig = defineConfig([
     ".open-next/**",
     ".wrangler/**",
     "cloudflare-env.d.ts",
-    // Wrangler entry point that imports the not-yet-built .open-next/worker.js
-    // (see tsconfig.json's matching exclude) — not part of the Next.js app.
-    "worker-entry.ts",
   ]),
 ]);
 

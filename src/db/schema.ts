@@ -223,35 +223,6 @@ export const savingsGoals = sqliteTable("savings_goals", {
 }, (table) => [index("savings_goals_household_id_idx").on(table.householdId)]);
 
 // ---------------------------------------------------------------------------
-// Push subscriptions — one row per browser/device that opted into push
-// notifications (Web Push, RFC 8291). notifiedRecurringIds/lastBudgetAlert
-// track what's already been sent so the scheduled check doesn't re-notify.
-// ---------------------------------------------------------------------------
-
-export const pushSubscriptions = sqliteTable("push_subscriptions", {
-  id: id(),
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  householdId: text("household_id").notNull().references(() => households.id, { onDelete: "cascade" }),
-  endpoint: text("endpoint").notNull(),
-  p256dh: text("p256dh").notNull(),
-  auth: text("auth").notNull(),
-  createdAt: createdAt(),
-}, (table) => [
-  uniqueIndex("push_subscriptions_endpoint_idx").on(table.endpoint),
-  index("push_subscriptions_household_id_idx").on(table.householdId),
-]);
-
-export const pushNotificationLog = sqliteTable("push_notification_log", {
-  id: id(),
-  householdId: text("household_id").notNull().references(() => households.id, { onDelete: "cascade" }),
-  // e.g. "recurring:<recurringExpenseId>:<nextDueDate>" or "budget:<period>"
-  dedupeKey: text("dedupe_key").notNull(),
-  sentAt: createdAt(),
-}, (table) => [
-  uniqueIndex("push_notification_log_household_key_idx").on(table.householdId, table.dedupeKey),
-]);
-
-// ---------------------------------------------------------------------------
 // Merchant rules — "this item name at this store always maps to..."
 // ---------------------------------------------------------------------------
 
@@ -286,5 +257,4 @@ export type ReceiptItem = typeof receiptItems.$inferSelect;
 export type MonthlyBudget = typeof monthlyBudgets.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
 export type SavingsGoal = typeof savingsGoals.$inferSelect;
-export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type MerchantRule = typeof merchantRules.$inferSelect;
