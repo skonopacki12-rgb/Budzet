@@ -21,7 +21,7 @@ export interface CategoryOption {
   subcategories: string[];
 }
 
-const MODEL = "claude-sonnet-5";
+const MODEL = "claude-haiku-4-5-20251001";
 const TOOL_NAME = "record_receipt";
 
 function toBase64(bytes: Uint8Array): string {
