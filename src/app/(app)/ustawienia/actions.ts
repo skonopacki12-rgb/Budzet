@@ -2,9 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { and, eq } from "drizzle-orm";
 import { destroyUserSession, getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { getActiveHousehold } from "@/lib/household";
 import { clearPin, markUnlocked, resetUnlock, setPin, verifyPin } from "@/lib/pin";
+import { pushSubscriptions } from "@/db/schema";
 
 const PIN_PATTERN = /^\d{4,6}$/;
 
@@ -51,4 +54,37 @@ export async function removePin(formData: FormData) {
 
   revalidatePath("/ustawienia");
   redirect("/ustawienia?pin_removed=1");
+}
+
+export async function subscribePush(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Nie zalogowano.");
+
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
+  if (!household) throw new Error("Brak gospodarstwa domowego.");
+
+  await db
+    .insert(pushSubscriptions)
+    .values({
+      userId: user.id,
+      householdId: household.id,
+      endpoint: subscription.endpoint,
+      p256dh: subscription.keys.p256dh,
+      auth: subscription.keys.auth,
+    })
+    .onConflictDoUpdate({
+      target: pushSubscriptions.endpoint,
+      set: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, userId: user.id, householdId: household.id },
+    });
+}
+
+export async function unsubscribePush(endpoint: string) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Nie zalogowano.");
+
+  const db = await getDb();
+  await db
+    .delete(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, user.id)));
 }

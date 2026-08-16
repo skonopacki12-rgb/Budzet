@@ -2,10 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { count, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { getDb, getEnv } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
 import { hasPinSet } from "@/lib/pin";
 import { householdMembers } from "@/db/schema";
+import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 import { removePin, savePin, signOut } from "./actions";
 
 export default async function SettingsPage({
@@ -21,9 +22,10 @@ export default async function SettingsPage({
   const household = await getActiveHousehold(db, user.id);
   if (!household) redirect("/onboarding");
 
-  const [memberCountRow, pinSet] = await Promise.all([
+  const [memberCountRow, pinSet, env] = await Promise.all([
     db.select({ value: count() }).from(householdMembers).where(eq(householdMembers.householdId, household.id)).get(),
     hasPinSet(db, user.id),
+    getEnv(),
   ]);
   const memberCount = memberCountRow?.value ?? 1;
 
@@ -104,6 +106,13 @@ export default async function SettingsPage({
             </button>
           </form>
         )}
+      </section>
+
+      <section className="rounded-2xl border border-neutral-200 p-4 text-sm">
+        <p className="text-xs text-neutral-400">Powiadomienia push</p>
+        <div className="mt-2">
+          <PushNotificationToggle vapidPublicKey={env.VAPID_PUBLIC_KEY ?? null} />
+        </div>
       </section>
 
       <form action={signOut}>

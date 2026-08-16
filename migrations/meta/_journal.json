@@ -22,6 +22,13 @@
       "when": 1786876108256,
       "tag": "0003_add_savings_goals",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786876781387,
+      "tag": "0004_add_push_subscriptions",
+      "breakpoints": true
     }
   ]
 }
