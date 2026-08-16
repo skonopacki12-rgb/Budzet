@@ -182,7 +182,12 @@ export default async function DashboardPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-medium text-neutral-700">Ostatnie wydatki</h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-neutral-700">Ostatnie wydatki</h2>
+          <Link href="/historia" className="text-xs text-neutral-500 underline">
+            Historia i szukaj
+          </Link>
+        </div>
         {recent.length === 0 ? (
           <p className="text-sm text-neutral-400">
             Nie dodano jeszcze żadnego wydatku.{" "}
