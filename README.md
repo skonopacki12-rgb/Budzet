@@ -29,13 +29,25 @@ Zaimplementowany fundament (Etap 0–3 z planu):
 - Instalacja jako PWA (manifest, ikony, service worker z app-shellem
   offline, podpowiedź instalacji na iOS).
 
+Etap 4–5 (dobudowane po uruchomieniu na Cloudflare):
+
+- **Wydatki cykliczne** (`/cykliczne`) — cykl miesięczny/kwartalny/roczny/co
+  X dni, przycisk „Zapłacone” tworzy transakcję i sam przesuwa datę następnej
+  płatności (i wygasza pozycję po `contract_end_date`), wstrzymywanie/wznawianie,
+  usuwanie. Pulpit pokazuje nadchodzące/zaległe płatności.
+- **Historia i wyszukiwanie wydatków** (`/historia`) — filtrowanie po
+  sklepie/notatce, kategorii i zakresie dat, plus usuwanie błędnie dodanego
+  wydatku (czego wcześniej nigdzie w aplikacji nie dało się zrobić). To
+  zastępuje etap „archiwum i wyszukiwanie paragonów” z planu — sam skan
+  paragonów jeszcze nie istnieje, więc dotyczy wszystkich wydatków, nie tylko
+  zeskanowanych paragonów.
+
 Jeszcze nie zaimplementowane (kolejne etapy planu): skan paragonów i
-kategoryzacja AI, wydatki stałe/cykliczne, archiwum i wyszukiwanie paragonów,
-śledzenie cen produktów, asystent AI w czacie, eksporty, powiadomienia push,
-PIN. Plan mówi wprost, żeby przetestować prompt AI na 10–100 realnych
-paragonach zanim zacznie się budować ekran skanowania (sekcja 4 i 10) — to
-naturalny kolejny krok. Tabele `receipts` / `receipt_items` już istnieją w
-schemacie, ale nie są jeszcze używane przez UI.
+kategoryzacja AI, śledzenie cen produktów, asystent AI w czacie, eksporty,
+powiadomienia push, PIN. Plan mówi wprost, żeby przetestować prompt AI na
+10–100 realnych paragonach zanim zacznie się budować ekran skanowania
+(sekcja 4 i 10) — to naturalny kolejny krok. Tabele `receipts` /
+`receipt_items` już istnieją w schemacie, ale nie są jeszcze używane przez UI.
 
 ### Ważne ograniczenia tej architektury
 
@@ -178,7 +190,7 @@ npm run db:migrate:remote  # stosuje go na produkcyjnej bazie D1
 ## Struktura projektu
 
 ```
-src/app/(app)/        ekrany po zalogowaniu (pulpit, dodaj, budżet, paragony, ustawienia)
+src/app/(app)/        ekrany po zalogowaniu (pulpit, dodaj, budżet, cykliczne, historia, paragony, ustawienia)
 src/app/login/        logowanie i rejestracja (e-mail + hasło)
 src/app/onboarding/   zakładanie / dołączanie do gospodarstwa domowego
 src/db/schema.ts      schemat Drizzle (źródło prawdy dla struktury bazy)
