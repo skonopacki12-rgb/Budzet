@@ -134,6 +134,23 @@ bindingami Workera, nie publicznymi kluczami wklejanymi w build).
 
 Po pierwszym deployu Wrangler wypisze adres `https://budzet.<twoj-subdomena>.workers.dev`.
 
+### Automatyczny deploy przez GitHub Actions
+
+Repo zawiera `.github/workflows/deploy.yml` — na każdy push do `main` (albo
+ręcznie z zakładki *Actions* → *Run workflow*) buduje projekt, wgrywa
+migracje D1 i robi `cf:deploy`.
+
+Żeby to zadziałało:
+
+1. Wykonaj kroki 1–2 powyżej ręcznie **raz** (baza D1 musi już istnieć,
+   a `database_id` w `wrangler.jsonc` musi być prawdziwy, nie placeholder).
+2. W ustawieniach repo: **Settings → Secrets and variables → Actions → New
+   repository secret**, dodaj `CLOUDFLARE_API_TOKEN` z tokenem o uprawnieniu
+   **Edit Cloudflare Workers** (ten sam co w kroku 1).
+
+Token trzymaj wyłącznie jako sekret repo — nigdy w kodzie, commitach ani
+w wiadomościach czy issue.
+
 ### 5. Własna domena (opcjonalnie)
 
 W **Cloudflare Dashboard → Workers & Pages → budzet → Settings → Domains &
