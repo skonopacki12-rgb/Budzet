@@ -27,22 +27,25 @@ export async function uploadReceipt(formData: FormData) {
   }
 
   const env = await getEnv();
-  const bytes = new Uint8Array(await file.arrayBuffer());
-
   const receiptId = crypto.randomUUID();
   const imagePath = `${household.id}/${receiptId}.jpg`;
 
-  await env.RECEIPTS.put(imagePath, bytes, {
-    httpMetadata: { contentType: file.type || "image/jpeg" },
-  });
-
-  await db.insert(receipts).values({
-    id: receiptId,
-    householdId: household.id,
-    imagePath,
-    status: "ai",
-    uploadedBy: user.id,
-  });
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await file.arrayBuffer());
+    await env.RECEIPTS.put(imagePath, bytes, {
+      httpMetadata: { contentType: file.type || "image/jpeg" },
+    });
+    await db.insert(receipts).values({
+      id: receiptId,
+      householdId: household.id,
+      imagePath,
+      status: "ai",
+      uploadedBy: user.id,
+    });
+  } catch {
+    throw new Error("Nie udało się wgrać zdjęcia. Spróbuj ponownie za chwilę.");
+  }
 
   const categoryRows = await db
     .select({ id: categories.id, name: categories.name })
