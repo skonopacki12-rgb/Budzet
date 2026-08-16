@@ -67,6 +67,9 @@ export default async function BudgetPage({
           <Link href="/cele" className="text-sm text-neutral-500 underline">
             Cele
           </Link>
+          <Link href="/statystyki" className="text-sm text-neutral-500 underline">
+            Statystyki
+          </Link>
         </div>
       </div>
 
