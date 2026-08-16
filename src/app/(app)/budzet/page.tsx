@@ -60,9 +60,14 @@ export default async function BudgetPage({
     <div className="flex flex-col gap-6 pt-2">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-neutral-900">Budżet miesięczny</h1>
-        <Link href="/cykliczne" className="text-sm text-neutral-500 underline">
-          Wydatki cykliczne
-        </Link>
+        <div className="flex gap-3">
+          <Link href="/cykliczne" className="text-sm text-neutral-500 underline">
+            Cykliczne
+          </Link>
+          <Link href="/cele" className="text-sm text-neutral-500 underline">
+            Cele
+          </Link>
+        </div>
       </div>
 
       {saved && (

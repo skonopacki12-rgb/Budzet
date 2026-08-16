@@ -15,6 +15,13 @@
       "when": 1786865832527,
       "tag": "0002_add_pin_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786876108256,
+      "tag": "0003_add_savings_goals",
+      "breakpoints": true
     }
   ]
 }

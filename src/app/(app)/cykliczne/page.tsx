@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { asc, desc, eq, isNull, or } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
@@ -50,7 +51,12 @@ export default async function RecurringExpensesPage() {
 
   return (
     <div className="flex flex-col gap-6 pt-2">
-      <h1 className="text-xl font-semibold text-neutral-900">Wydatki cykliczne</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-neutral-900">Wydatki cykliczne</h1>
+        <Link href="/budzet" className="text-sm text-neutral-500 underline">
+          Budżet
+        </Link>
+      </div>
 
       <section>
         {recurringRows.length === 0 ? (
