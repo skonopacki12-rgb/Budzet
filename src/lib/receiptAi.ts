@@ -25,7 +25,12 @@ export interface CategoryOption {
 
 // Not @cf/meta/llama-3.2-11b-vision-instruct: its community license excludes
 // users/companies domiciled in the EU, which this app's users are.
-const VISION_MODEL = "@cf/llava-hf/llava-1.5-7b-hf";
+// llava-1.5-7b-hf tried first but produced near-empty/hallucinated
+// transcriptions on real receipts (see git history) — trying the only other
+// image-to-text model on Workers AI, though it's smaller and built for
+// short image captions rather than dense document text, so this is a
+// low-confidence experiment, not an expected fix.
+const VISION_MODEL = "@cf/unum/uform-gen2-qwen-500m";
 const TEXT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 /**
