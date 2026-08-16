@@ -15,7 +15,9 @@ export interface ExtractedReceipt {
   items: ExtractedReceiptItem[];
 }
 
-const MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
+// Not @cf/meta/llama-3.2-11b-vision-instruct: its community license excludes
+// users/companies domiciled in the EU, which this app's users are.
+const MODEL = "@cf/llava-hf/llava-1.5-7b-hf";
 
 function buildPrompt(categoryNames: string[]): string {
   return `Jesteś asystentem odczytującym polskie paragony sklepowe ze zdjęcia. Zwróć WYŁĄCZNIE jeden obiekt JSON (bez markdown, bez komentarzy, bez tekstu przed ani po) o dokładnie takim kształcie:
@@ -40,7 +42,7 @@ export async function extractReceipt(ai: Ai, imageBytes: Uint8Array, categoryNam
     max_tokens: 2048,
   });
 
-  const parsed = extractJson(result.response ?? "") as Record<string, unknown>;
+  const parsed = extractJson(result.description ?? "") as Record<string, unknown>;
   if (!Array.isArray(parsed.items)) {
     throw new Error("Odpowiedź AI nie zawiera listy pozycji.");
   }

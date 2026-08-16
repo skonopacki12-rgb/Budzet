@@ -49,9 +49,11 @@ Etap 4–8 (dobudowane po uruchomieniu na Cloudflare):
   samej sesji).
 - **Skan paragonów i kategoryzacja AI** (`/paragony/nowy`) — zdjęcie
   paragonu trafia do R2, model wizyjny Cloudflare Workers AI
-  (`@cf/meta/llama-3.2-11b-vision-instruct`) odczytuje sklep, datę, sumę
-  i pozycje, dopasowując każdej pozycji jedną z 15 kategorii z zamkniętego
-  słownika. Użytkownik przegląda wynik na `/paragony/[id]` — może odznaczyć
+  (`@cf/llava-hf/llava-1.5-7b-hf` — **nie** `llama-3.2-11b-vision-instruct`,
+  bo jego licencja Meta wprost wyklucza osoby/firmy z UE) odczytuje sklep,
+  datę, sumę i pozycje, dopasowując każdej pozycji jedną z 15 kategorii
+  z zamkniętego słownika. Użytkownik przegląda wynik na `/paragony/[id]` —
+  może odznaczyć
   błędnie rozpoznaną pozycję, poprawić kategorię/podkategorię/kwotę — i
   dopiero potwierdzenie zapisuje pozycje jako osobne wydatki (każda ze swoją
   kategorią, w przeciwieństwie do jednego zbiorczego wydatku na cały
