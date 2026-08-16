@@ -1,12 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, isNull, or } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb, getEnv } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
-import { extractReceipt } from "@/lib/receiptAi";
-import { categories, receipts, receiptItems } from "@/db/schema";
+import { extractReceipt, type CategoryOption } from "@/lib/receiptAi";
+import { categories, receipts, receiptItems, subcategories } from "@/db/schema";
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
 
@@ -47,19 +47,29 @@ export async function uploadReceipt(formData: FormData) {
     throw new Error("Nie udało się wgrać zdjęcia. Spróbuj ponownie za chwilę.");
   }
 
-  const categoryRows = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .orderBy(asc(categories.sortOrder))
-    .all();
+  const [categoryRows, subcategoryRows] = await Promise.all([
+    db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(asc(categories.sortOrder)).all(),
+    db
+      .select({ id: subcategories.id, categoryId: subcategories.categoryId, name: subcategories.name })
+      .from(subcategories)
+      .where(or(isNull(subcategories.householdId), eq(subcategories.householdId, household.id)))
+      .orderBy(asc(subcategories.sortOrder))
+      .all(),
+  ]);
   const categoryByName = new Map(categoryRows.map((category) => [category.name, category.id]));
+  const subcategoryByCategoryId = new Map<string, Map<string, string>>();
+  for (const sub of subcategoryRows) {
+    if (!subcategoryByCategoryId.has(sub.categoryId)) subcategoryByCategoryId.set(sub.categoryId, new Map());
+    subcategoryByCategoryId.get(sub.categoryId)!.set(sub.name, sub.id);
+  }
+
+  const categoryOptions: CategoryOption[] = categoryRows.map((category) => ({
+    name: category.name,
+    subcategories: subcategoryRows.filter((sub) => sub.categoryId === category.id).map((sub) => sub.name),
+  }));
 
   try {
-    const extracted = await extractReceipt(
-      env.AI,
-      bytes,
-      categoryRows.map((category) => category.name),
-    );
+    const extracted = await extractReceipt(env.AI, bytes, categoryOptions);
 
     await db
       .update(receipts)
@@ -73,14 +83,20 @@ export async function uploadReceipt(formData: FormData) {
 
     if (extracted.items.length > 0) {
       await db.insert(receiptItems).values(
-        extracted.items.map((item) => ({
-          receiptId,
-          rawName: item.name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.totalPrice,
-          categoryId: item.category ? (categoryByName.get(item.category) ?? null) : null,
-        })),
+        extracted.items.map((item) => {
+          const categoryId = item.category ? (categoryByName.get(item.category) ?? null) : null;
+          const subcategoryId =
+            categoryId && item.subcategory ? (subcategoryByCategoryId.get(categoryId)?.get(item.subcategory) ?? null) : null;
+          return {
+            receiptId,
+            rawName: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+            categoryId,
+            subcategoryId,
+          };
+        }),
       );
     }
   } catch (error) {

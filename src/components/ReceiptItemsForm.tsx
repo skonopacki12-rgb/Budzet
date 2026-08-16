@@ -69,7 +69,7 @@ export function ReceiptItemsForm({
                 {subcategoryOptions.length > 0 && (
                   <select
                     name={`item__${item.id}__subcategory_id`}
-                    defaultValue=""
+                    defaultValue={item.subcategoryId ?? ""}
                     className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-neutral-900"
                   >
                     <option value="">Bez podkategorii</option>
