@@ -14,6 +14,8 @@ export interface ExtractedReceipt {
   purchaseDate: string | null;
   totalAmount: number | null;
   items: ExtractedReceiptItem[];
+  /** Raw step-1 transcription, kept for diagnosing bad reads without live-log access. */
+  rawText: string;
 }
 
 export interface CategoryOption {
@@ -46,7 +48,7 @@ function nonEmptyString(value: unknown): string | null {
 }
 
 /** Step 1: ask the vision model only to transcribe, not to reason — its one relatively reliable skill. */
-async function transcribeReceipt(ai: Ai, imageBytes: Uint8Array): Promise<string> {
+export async function transcribeReceipt(ai: Ai, imageBytes: Uint8Array): Promise<string> {
   const result = await ai.run(VISION_MODEL, {
     prompt:
       "Przepisz DOKŁADNIE cały widoczny tekst z tego zdjęcia paragonu sklepowego, linijka po linijce, w tej samej kolejności co na zdjęciu. Nie pomijaj żadnej pozycji ani kwoty, nie interpretuj, nie licz — tylko przepisz to, co widzisz.",
@@ -137,11 +139,11 @@ function extractStructuredObject(result: unknown): Record<string, unknown> {
 }
 
 /** Step 2: a strong text-only model turns the raw transcription into structured, categorized data. */
-async function structureReceipt(
+export async function structureReceipt(
   ai: Ai,
   ocrText: string,
   categories: CategoryOption[],
-): Promise<ExtractedReceipt> {
+): Promise<Omit<ExtractedReceipt, "rawText">> {
   const result = await ai.run(TEXT_MODEL, {
     prompt: buildStructurePrompt(ocrText, categories),
     response_format: { type: "json_schema", json_schema: STRUCTURE_SCHEMA },
@@ -169,13 +171,4 @@ async function structureReceipt(
       };
     }),
   };
-}
-
-export async function extractReceipt(
-  ai: Ai,
-  imageBytes: Uint8Array,
-  categories: CategoryOption[],
-): Promise<ExtractedReceipt> {
-  const ocrText = await transcribeReceipt(ai, imageBytes);
-  return structureReceipt(ai, ocrText, categories);
 }

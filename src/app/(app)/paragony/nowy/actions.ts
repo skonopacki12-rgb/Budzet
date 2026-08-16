@@ -5,7 +5,7 @@ import { asc, eq, isNull, or } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb, getEnv } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
-import { extractReceipt, type CategoryOption } from "@/lib/receiptAi";
+import { transcribeReceipt, structureReceipt, type CategoryOption } from "@/lib/receiptAi";
 import { categories, receipts, receiptItems, subcategories } from "@/db/schema";
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
@@ -68,8 +68,10 @@ export async function uploadReceipt(formData: FormData) {
     subcategories: subcategoryRows.filter((sub) => sub.categoryId === category.id).map((sub) => sub.name),
   }));
 
+  let ocrText = "";
   try {
-    const extracted = await extractReceipt(env.AI, bytes, categoryOptions);
+    ocrText = await transcribeReceipt(env.AI, bytes);
+    const extracted = await structureReceipt(env.AI, ocrText, categoryOptions);
 
     await db
       .update(receipts)
@@ -77,6 +79,7 @@ export async function uploadReceipt(formData: FormData) {
         storeName: extracted.storeName,
         purchaseDate: extracted.purchaseDate,
         totalAmount: extracted.totalAmount,
+        rawText: ocrText,
         status: "ready",
       })
       .where(eq(receipts.id, receiptId));
@@ -100,11 +103,14 @@ export async function uploadReceipt(formData: FormData) {
       );
     }
   } catch (error) {
+    // Save the transcription too, even on failure — it's the only way to
+    // diagnose a bad read without live Cloudflare log access.
     await db
       .update(receipts)
       .set({
         status: "error",
         errorMessage: error instanceof Error ? error.message : "Nieznany błąd analizy AI.",
+        rawText: ocrText || null,
       })
       .where(eq(receipts.id, receiptId));
   }

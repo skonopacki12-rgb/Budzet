@@ -91,6 +91,13 @@ export default async function ReceiptDetailPage({
         <p className="text-sm text-neutral-500">AI nie rozpoznało żadnych pozycji na tym paragonie.</p>
       )}
 
+      {receipt.rawText && (
+        <details className="rounded-xl border border-neutral-200 p-3 text-sm">
+          <summary className="cursor-pointer text-neutral-600">Surowy tekst odczytany przez AI</summary>
+          <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-neutral-500">{receipt.rawText}</pre>
+        </details>
+      )}
+
       {confirmedItems.length > 0 && (
         <section>
           <h2 className="mb-2 text-sm font-medium text-neutral-700">Zapisane wydatki</h2>
