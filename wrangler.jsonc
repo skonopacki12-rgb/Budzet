@@ -12,11 +12,7 @@
 		{
 			"binding": "DB",
 			"database_name": "budzet",
-			// Placeholder — replace with the real id printed by
-			// `npx wrangler d1 create budzet` (see README "Wdrożenie na
-			// Cloudflare"). Local `wrangler dev` / `next dev` work fine with
-			// the placeholder since they use a local SQLite file, not this id.
-			"database_id": "REPLACE_WITH_D1_DATABASE_ID",
+			"database_id": "da8e9987-ee6a-41af-9f86-538c09d80c07",
 			"migrations_dir": "migrations"
 		}
 	]
