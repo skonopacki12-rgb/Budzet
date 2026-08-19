@@ -91,22 +91,35 @@ export async function uploadReceipt(formData: FormData) {
       .where(eq(receipts.id, receiptId));
 
     if (extracted.items.length > 0) {
-      await db.insert(receiptItems).values(
-        extracted.items.map((item) => {
-          const categoryId = item.category ? (categoryByName.get(item.category) ?? null) : null;
-          const subcategoryId =
-            categoryId && item.subcategory ? (subcategoryByCategoryId.get(categoryId)?.get(item.subcategory) ?? null) : null;
-          return {
-            receiptId,
-            rawName: item.name,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
-            categoryId,
-            subcategoryId,
-          };
-        }),
-      );
+      const rows = extracted.items.map((item) => {
+        const categoryId = item.category ? (categoryByName.get(item.category) ?? null) : null;
+        const subcategoryId =
+          categoryId && item.subcategory ? (subcategoryByCategoryId.get(categoryId)?.get(item.subcategory) ?? null) : null;
+        return {
+          receiptId,
+          rawName: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+          categoryId,
+          subcategoryId,
+        };
+      });
+
+      // D1 caps bound parameters at 100 per statement. Each row binds 10
+      // params (the 7 columns set here, plus id/confirmed/createdAt from
+      // Drizzle's column defaults), so a single multi-row insert failed on
+      // any receipt with more than 10 items — chunk to stay under the cap.
+      const CHUNK_SIZE = 9;
+      const chunks: (typeof rows)[] = [];
+      for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+        chunks.push(rows.slice(i, i + CHUNK_SIZE));
+      }
+      const [firstChunk, ...restChunks] = chunks;
+      await db.batch([
+        db.insert(receiptItems).values(firstChunk),
+        ...restChunks.map((chunk) => db.insert(receiptItems).values(chunk)),
+      ]);
     }
   } catch (error) {
     await db
