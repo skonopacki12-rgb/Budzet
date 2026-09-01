@@ -15,9 +15,18 @@ const PAGE_SIZE = 50;
 export default async function HistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category_id?: string; from?: string; to?: string; edited?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    category_id?: string;
+    from?: string;
+    to?: string;
+    edited?: string;
+    page?: string;
+    unnecessary?: string;
+  }>;
 }) {
-  const { q, category_id: categoryId, from, to, edited, page: pageParam } = await searchParams;
+  const { q, category_id: categoryId, from, to, edited, page: pageParam, unnecessary: unnecessaryParam } =
+    await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -25,25 +34,28 @@ export default async function HistoryPage({
   const household = await getActiveHousehold(db, user.id);
   if (!household) redirect("/onboarding");
 
-  const conditions = [eq(transactions.householdId, household.id), eq(transactions.type, "expense")];
+  const baseConditions = [eq(transactions.householdId, household.id), eq(transactions.type, "expense")];
   if (q?.trim()) {
     const pattern = `%${q.trim()}%`;
-    conditions.push(or(like(transactions.shop, pattern), like(transactions.note, pattern))!);
+    baseConditions.push(or(like(transactions.shop, pattern), like(transactions.note, pattern))!);
   }
   if (categoryId) {
-    conditions.push(eq(transactions.categoryId, categoryId));
+    baseConditions.push(eq(transactions.categoryId, categoryId));
   }
   if (from) {
-    conditions.push(gte(transactions.occurredOn, from));
+    baseConditions.push(gte(transactions.occurredOn, from));
   }
   if (to) {
-    conditions.push(lte(transactions.occurredOn, to));
+    baseConditions.push(lte(transactions.occurredOn, to));
   }
+
+  const unnecessaryOnly = unnecessaryParam === "1";
+  const conditions = unnecessaryOnly ? [...baseConditions, eq(transactions.unnecessary, true)] : baseConditions;
 
   const page = Math.max(1, Number(pageParam) || 1);
   const offset = (page - 1) * PAGE_SIZE;
 
-  const [rows, sumRows, totalCountRow, categoryRows] = await Promise.all([
+  const [rows, sumRows, unnecessarySumRows, totalCountRow, categoryRows] = await Promise.all([
     db
       .select()
       .from(transactions)
@@ -52,12 +64,18 @@ export default async function HistoryPage({
       .limit(PAGE_SIZE)
       .offset(offset)
       .all(),
-    // Separate, unpaginated: the "Suma" below covers every matching result,
-    // not just the current page — but skips transactions marked "zbędny".
+    // Unpaginated: "Suma" covers every matching result, not just the current
+    // page. Every expense counts here — "zbędny" is a marker for future
+    // savings, not a reason to hide real spending from the total.
     db
       .select({ amount: transactions.amount })
       .from(transactions)
-      .where(and(...conditions, eq(transactions.unnecessary, false)))
+      .where(and(...conditions))
+      .all(),
+    db
+      .select({ amount: transactions.amount })
+      .from(transactions)
+      .where(and(...baseConditions, eq(transactions.unnecessary, true)))
       .all(),
     db.select({ value: count() }).from(transactions).where(and(...conditions)).get(),
     db.select().from(categories).orderBy(asc(categories.sortOrder)).all(),
@@ -65,9 +83,10 @@ export default async function HistoryPage({
 
   const categoryById = new Map(categoryRows.map((category) => [category.id, category]));
   const total = sumRows.reduce((sum, row) => sum + row.amount, 0);
+  const unnecessaryTotal = unnecessarySumRows.reduce((sum, row) => sum + row.amount, 0);
   const totalCount = totalCountRow?.value ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const hasFilters = Boolean(q?.trim() || categoryId || from || to);
+  const hasFilters = Boolean(q?.trim() || categoryId || from || to || unnecessaryOnly);
 
   const baseParams = new URLSearchParams();
   if (q?.trim()) baseParams.set("q", q.trim());
@@ -77,8 +96,13 @@ export default async function HistoryPage({
 
   const exportHref = `/historia/eksport${baseParams.size > 0 ? `?${baseParams.toString()}` : ""}`;
 
+  const unnecessaryToggleParams = new URLSearchParams(baseParams);
+  if (!unnecessaryOnly) unnecessaryToggleParams.set("unnecessary", "1");
+  const unnecessaryToggleHref = `/historia${unnecessaryToggleParams.toString() ? `?${unnecessaryToggleParams.toString()}` : ""}`;
+
   const pageHref = (targetPage: number) => {
     const params = new URLSearchParams(baseParams);
+    if (unnecessaryOnly) params.set("unnecessary", "1");
     if (targetPage > 1) params.set("page", String(targetPage));
     const qs = params.toString();
     return `/historia${qs ? `?${qs}` : ""}`;
@@ -93,6 +117,7 @@ export default async function HistoryPage({
       )}
 
       <form className="flex flex-col gap-3">
+        {unnecessaryOnly && <input type="hidden" name="unnecessary" value="1" />}
         <input
           name="q"
           type="text"
@@ -150,19 +175,32 @@ export default async function HistoryPage({
         </div>
       </form>
 
+      <Link
+        href={unnecessaryToggleHref}
+        className={`self-start rounded-lg border px-3 py-1.5 text-xs font-medium ${
+          unnecessaryOnly
+            ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+            : "border-neutral-300 text-neutral-700 dark:border-neutral-700 dark:text-neutral-300"
+        }`}
+      >
+        {unnecessaryOnly ? "✓ Tylko zbędne" : "Pokaż tylko zbędne"}
+      </Link>
+
       <section>
-        <div className="mb-2 flex items-center justify-between text-sm">
+        <div className="mb-1 flex items-center justify-between text-sm">
           <span className="text-neutral-500 dark:text-neutral-400">
             {totalCount} {totalCount === 1 ? "wynik" : "wyników"}
           </span>
           <span className="font-medium text-neutral-900 dark:text-neutral-100">Suma: {formatPln(total)}</span>
         </div>
-        <p className="mb-3 text-xs text-neutral-400 dark:text-neutral-500">
-          Suma pomija wydatki oznaczone jako zbędne.
-        </p>
+        {!unnecessaryOnly && unnecessaryTotal > 0 && (
+          <p className="mb-3 text-xs text-amber-700 dark:text-amber-400">
+            z tego zbędne: {formatPln(unnecessaryTotal)} — potencjalna oszczędność, jeśli z nich zrezygnujesz
+          </p>
+        )}
 
         {rows.length > 0 && (
-          <a href={exportHref} className="mb-3 inline-block text-xs text-neutral-500 dark:text-neutral-400 underline">
+          <a href={exportHref} className="mb-3 mt-2 inline-block text-xs text-neutral-500 dark:text-neutral-400 underline">
             Eksportuj do CSV
           </a>
         )}
@@ -176,13 +214,7 @@ export default async function HistoryPage({
               return (
                 <li key={transaction.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <div className="min-w-0">
-                    <p
-                      className={`truncate ${
-                        transaction.unnecessary
-                          ? "text-neutral-400 line-through dark:text-neutral-500"
-                          : "text-neutral-900 dark:text-neutral-100"
-                      }`}
-                    >
+                    <p className="truncate text-neutral-900 dark:text-neutral-100">
                       {transactionLabel(transaction, category)}
                     </p>
                     <p className="text-xs text-neutral-400 dark:text-neutral-500">
@@ -192,21 +224,22 @@ export default async function HistoryPage({
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <span
-                      className={
-                        transaction.unnecessary
-                          ? "font-medium text-neutral-400 line-through dark:text-neutral-500"
-                          : "font-medium text-neutral-900 dark:text-neutral-100"
-                      }
-                    >
+                    <span className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatPln(transaction.amount)}
                     </span>
                     <div className="flex items-center gap-3">
                       <form action={toggleUnnecessary}>
                         <input type="hidden" name="id" value={transaction.id} />
                         <input type="hidden" name="next" value={transaction.unnecessary ? "0" : "1"} />
-                        <button type="submit" className="text-xs font-medium text-neutral-500 dark:text-neutral-400 underline">
-                          {transaction.unnecessary ? "Cofnij" : "Zbędny"}
+                        <button
+                          type="submit"
+                          className={`text-xs font-medium underline ${
+                            transaction.unnecessary
+                              ? "text-amber-700 dark:text-amber-400"
+                              : "text-neutral-500 dark:text-neutral-400"
+                          }`}
+                        >
+                          {transaction.unnecessary ? "Zbędny ✓" : "Oznacz jako zbędny"}
                         </button>
                       </form>
                       <Link href={`/historia/${transaction.id}/edytuj`} className="text-xs font-medium text-neutral-600 dark:text-neutral-300 underline">

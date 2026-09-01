@@ -43,7 +43,6 @@ export default async function BudgetPage({
         and(
           eq(transactions.householdId, household.id),
           eq(transactions.type, "expense"),
-          eq(transactions.unnecessary, false),
           gte(transactions.occurredOn, periodStart),
         ),
       )

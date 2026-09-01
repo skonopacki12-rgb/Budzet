@@ -33,13 +33,13 @@ export default async function DashboardPage() {
         receiptId: transactions.receiptId,
         occurredOn: transactions.occurredOn,
         createdAt: transactions.createdAt,
+        unnecessary: transactions.unnecessary,
       })
       .from(transactions)
       .where(
         and(
           eq(transactions.householdId, household.id),
           eq(transactions.type, "expense"),
-          eq(transactions.unnecessary, false),
           gte(transactions.occurredOn, periodStart),
           lte(transactions.occurredOn, periodEnd),
         ),
@@ -74,6 +74,9 @@ export default async function DashboardPage() {
   const categoryById = new Map(categoryRows.map((category) => [category.id, category]));
 
   const totalSpent = txRows.reduce((sum, transaction) => sum + transaction.amount, 0);
+  const unnecessarySpent = txRows
+    .filter((transaction) => transaction.unnecessary)
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
   const globalBudget = monthlyBudget?.limitAmount ?? null;
 
   const spentByCategory = new Map<string, number>();
@@ -140,6 +143,21 @@ export default async function DashboardPage() {
           {forecastDiff > 0
             ? `Przy obecnym tempie przekroczysz budżet o ${formatPln(forecastDiff)} do końca miesiąca.`
             : `Jesteś na dobrej drodze — przy obecnym tempie zostanie Ci ok. ${formatPln(-forecastDiff)}.`}
+        </section>
+      )}
+
+      {unnecessarySpent > 0 && (
+        <section className="rounded-2xl bg-amber-50 dark:bg-amber-950 p-4 text-sm text-amber-800 dark:text-amber-300">
+          <p>
+            Oznaczono jako zbędne: <span className="font-medium">{formatPln(unnecessarySpent)}</span> w tym miesiącu —
+            tyle mógłbyś jeszcze zaoszczędzić, rezygnując z tych zakupów.
+          </p>
+          <Link
+            href={`/historia?unnecessary=1&from=${periodStart}&to=${periodEnd}`}
+            className="mt-1 inline-block text-xs underline"
+          >
+            Zobacz co oznaczono
+          </Link>
         </section>
       )}
 
