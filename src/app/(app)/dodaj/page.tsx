@@ -26,8 +26,8 @@ export default async function AddExpensePage() {
   ]);
 
   return (
-    <div className="pt-2">
-      <h1 className="mb-4 text-xl font-semibold text-neutral-900">Dodaj wydatek</h1>
+    <div className="pt-2 md:max-w-md">
+      <h1 className="mb-4 text-xl font-semibold text-neutral-900 dark:text-neutral-100">Dodaj wydatek</h1>
       <ExpenseForm categories={categoryRows} subcategories={subcategoryRows} action={addExpense} />
     </div>
   );

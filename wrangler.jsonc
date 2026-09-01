@@ -12,12 +12,19 @@
 		{
 			"binding": "DB",
 			"database_name": "budzet",
-			// Placeholder — replace with the real id printed by
-			// `npx wrangler d1 create budzet` (see README "Wdrożenie na
-			// Cloudflare"). Local `wrangler dev` / `next dev` work fine with
-			// the placeholder since they use a local SQLite file, not this id.
-			"database_id": "REPLACE_WITH_D1_DATABASE_ID",
+			"database_id": "da8e9987-ee6a-41af-9f86-538c09d80c07",
 			"migrations_dir": "migrations"
+		}
+	],
+	"r2_buckets": [
+		{
+			// Bucket must be created once with exactly this name:
+			// `npx wrangler r2 bucket create budzet-receipts` (see README
+			// "Wdrożenie na Cloudflare") — R2 bucket names can't contain
+			// placeholder-style uppercase/underscores, so unlike the D1
+			// database_id above this value is fixed, not a stand-in.
+			"binding": "RECEIPTS",
+			"bucket_name": "budzet-receipts"
 		}
 	]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE `transactions` ADD `unnecessary` integer DEFAULT false NOT NULL;

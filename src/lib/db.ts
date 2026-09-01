@@ -8,3 +8,8 @@ export async function getDb() {
 }
 
 export type Db = Awaited<ReturnType<typeof getDb>>;
+
+export async function getEnv() {
+  const { env } = await getCloudflareContext({ async: true });
+  return env;
+}

@@ -19,6 +19,7 @@ export const users = sqliteTable("users", {
   id: id(),
   email: text("email").notNull(),
   passwordHash: text("password_hash").notNull(),
+  pinHash: text("pin_hash"),
   createdAt: createdAt(),
 }, (table) => [uniqueIndex("users_email_idx").on(table.email)]);
 
@@ -170,6 +171,10 @@ export const transactions = sqliteTable("transactions", {
   note: text("note"),
   receiptId: text("receipt_id").references(() => receipts.id, { onDelete: "set null" }),
   recurringExpenseId: text("recurring_expense_id").references(() => recurringExpenses.id, { onDelete: "set null" }),
+  // Marked in /historia — kept in the list for reference but excluded from
+  // every "spent" sum (dashboard, budget, statystyki) so impulse buys don't
+  // count against the budget without having to delete them outright.
+  unnecessary: integer("unnecessary", { mode: "boolean" }).notNull().default(false),
   createdBy: text("created_by").notNull().references(() => users.id),
   createdAt: createdAt(),
 }, (table) => [
@@ -205,6 +210,23 @@ export const budgets = sqliteTable("budgets", {
 ]);
 
 // ---------------------------------------------------------------------------
+// Savings goals — simple target + manually-tracked saved amount, no
+// separate contributions ledger (kept minimal on purpose).
+// ---------------------------------------------------------------------------
+
+export const savingsGoals = sqliteTable("savings_goals", {
+  id: id(),
+  householdId: text("household_id").notNull().references(() => households.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  targetAmount: real("target_amount").notNull(),
+  currentAmount: real("current_amount").notNull().default(0),
+  targetDate: text("target_date"),
+  achieved: integer("achieved", { mode: "boolean" }).notNull().default(false),
+  createdBy: text("created_by").notNull().references(() => users.id),
+  createdAt: createdAt(),
+}, (table) => [index("savings_goals_household_id_idx").on(table.householdId)]);
+
+// ---------------------------------------------------------------------------
 // Merchant rules — "this item name at this store always maps to..."
 // ---------------------------------------------------------------------------
 
@@ -238,4 +260,5 @@ export type Receipt = typeof receipts.$inferSelect;
 export type ReceiptItem = typeof receiptItems.$inferSelect;
 export type MonthlyBudget = typeof monthlyBudgets.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
+export type SavingsGoal = typeof savingsGoals.$inferSelect;
 export type MerchantRule = typeof merchantRules.$inferSelect;

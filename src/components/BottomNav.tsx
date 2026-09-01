@@ -16,8 +16,8 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-      <ul className="mx-auto flex max-w-lg items-stretch justify-between px-2">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-900/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+      <ul className="mx-auto flex max-w-lg items-stretch justify-between px-2 md:max-w-2xl lg:max-w-3xl xl:max-w-4xl">
         {ITEMS.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           const isAdd = href === "/dodaj";
@@ -27,16 +27,16 @@ export function BottomNav() {
                 href={href}
                 className={`flex flex-col items-center gap-0.5 py-2.5 text-xs ${
                   isAdd
-                    ? "text-white"
+                    ? "text-white dark:text-neutral-900"
                     : active
-                      ? "text-neutral-900 font-medium"
-                      : "text-neutral-400"
+                      ? "text-neutral-900 dark:text-neutral-100 font-medium"
+                      : "text-neutral-400 dark:text-neutral-500"
                 }`}
               >
                 <span
                   className={
                     isAdd
-                      ? "flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 -mt-4 shadow-lg"
+                      ? "flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 dark:bg-neutral-100 -mt-4 shadow-lg"
                       : "flex h-6 w-6 items-center justify-center"
                   }
                 >

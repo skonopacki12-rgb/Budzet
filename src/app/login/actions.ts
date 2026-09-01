@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/db/schema";
 import { createUserSession, hashPassword, verifyPassword } from "@/lib/auth";
+import { resetUnlock } from "@/lib/pin";
 
 export type AuthActionState = { error: string } | undefined;
 
@@ -28,6 +29,7 @@ export async function login(_prevState: AuthActionState, formData: FormData): Pr
   }
 
   await createUserSession(user.id);
+  await resetUnlock();
   redirect("/");
 }
 
@@ -52,5 +54,6 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
   const user = await db.insert(users).values({ email, passwordHash }).returning({ id: users.id }).get();
 
   await createUserSession(user.id);
+  await resetUnlock();
   redirect("/onboarding");
 }
