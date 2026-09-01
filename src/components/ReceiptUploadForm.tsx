@@ -65,7 +65,6 @@ export function ReceiptUploadForm({ action }: { action: (formData: FormData) => 
           name="image"
           type="file"
           accept="image/*"
-          capture="environment"
           required
           className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2.5 text-sm outline-none focus:border-neutral-900 dark:focus:border-neutral-100"
         />
