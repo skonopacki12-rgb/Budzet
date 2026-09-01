@@ -26,6 +26,28 @@ export async function deleteTransaction(formData: FormData) {
   revalidatePath("/statystyki");
 }
 
+export async function toggleUnnecessary(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const db = await getDb();
+  const household = await getActiveHousehold(db, user.id);
+  if (!household) redirect("/onboarding");
+
+  const id = String(formData.get("id") ?? "");
+  const next = formData.get("next") === "1";
+
+  await db
+    .update(transactions)
+    .set({ unnecessary: next })
+    .where(and(eq(transactions.id, id), eq(transactions.householdId, household.id)));
+
+  revalidatePath("/historia");
+  revalidatePath("/");
+  revalidatePath("/budzet");
+  revalidatePath("/statystyki");
+}
+
 export async function updateTransaction(id: string, formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");

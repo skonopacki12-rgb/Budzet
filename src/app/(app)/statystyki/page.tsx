@@ -29,6 +29,7 @@ export default async function StatsPage() {
         and(
           eq(transactions.householdId, household.id),
           eq(transactions.type, "expense"),
+          eq(transactions.unnecessary, false),
           gte(transactions.occurredOn, twoYearsAgoStart),
         ),
       )

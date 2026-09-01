@@ -36,6 +36,13 @@
       "when": 1786894451562,
       "tag": "0005_drop_push_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788263544552,
+      "tag": "0006_add_unnecessary_flag",
+      "breakpoints": true
     }
   ]
 }

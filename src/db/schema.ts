@@ -171,6 +171,10 @@ export const transactions = sqliteTable("transactions", {
   note: text("note"),
   receiptId: text("receipt_id").references(() => receipts.id, { onDelete: "set null" }),
   recurringExpenseId: text("recurring_expense_id").references(() => recurringExpenses.id, { onDelete: "set null" }),
+  // Marked in /historia — kept in the list for reference but excluded from
+  // every "spent" sum (dashboard, budget, statystyki) so impulse buys don't
+  // count against the budget without having to delete them outright.
+  unnecessary: integer("unnecessary", { mode: "boolean" }).notNull().default(false),
   createdBy: text("created_by").notNull().references(() => users.id),
   createdAt: createdAt(),
 }, (table) => [

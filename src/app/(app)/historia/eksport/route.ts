@@ -54,7 +54,7 @@ export async function GET(request: Request) {
   const categoryById = new Map(categoryRows.map((category) => [category.id, category]));
   const subcategoryById = new Map(subcategoryRows.map((sub) => [sub.id, sub]));
 
-  const header = ["Data", "Kwota", "Waluta", "Kategoria", "Podkategoria", "Sklep", "Notatka"];
+  const header = ["Data", "Kwota", "Waluta", "Kategoria", "Podkategoria", "Sklep", "Notatka", "Zbędny"];
   const lines = [header.join(",")];
 
   for (const row of rows) {
@@ -67,6 +67,7 @@ export async function GET(request: Request) {
         subcategoryById.get(row.subcategoryId ?? "")?.name ?? "",
         row.shop ?? "",
         row.note ?? "",
+        row.unnecessary ? "Tak" : "Nie",
       ]
         .map((field) => csvEscape(String(field)))
         .join(","),

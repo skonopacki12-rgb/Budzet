@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { and, asc, desc, eq, gte, like, lte, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, like, lte, or } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
@@ -8,16 +8,16 @@ import { formatPln } from "@/lib/date";
 import { transactionLabel } from "@/lib/transactions";
 import { categories, transactions } from "@/db/schema";
 import { ConfirmButton } from "@/components/ConfirmButton";
-import { deleteTransaction } from "./actions";
+import { deleteTransaction, toggleUnnecessary } from "./actions";
 
-const RESULT_LIMIT = 200;
+const PAGE_SIZE = 50;
 
 export default async function HistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category_id?: string; from?: string; to?: string; edited?: string }>;
+  searchParams: Promise<{ q?: string; category_id?: string; from?: string; to?: string; edited?: string; page?: string }>;
 }) {
-  const { q, category_id: categoryId, from, to, edited } = await searchParams;
+  const { q, category_id: categoryId, from, to, edited, page: pageParam } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -40,27 +40,49 @@ export default async function HistoryPage({
     conditions.push(lte(transactions.occurredOn, to));
   }
 
-  const [rows, categoryRows] = await Promise.all([
+  const page = Math.max(1, Number(pageParam) || 1);
+  const offset = (page - 1) * PAGE_SIZE;
+
+  const [rows, sumRows, totalCountRow, categoryRows] = await Promise.all([
     db
       .select()
       .from(transactions)
       .where(and(...conditions))
       .orderBy(desc(transactions.occurredOn), desc(transactions.createdAt))
-      .limit(RESULT_LIMIT)
+      .limit(PAGE_SIZE)
+      .offset(offset)
       .all(),
+    // Separate, unpaginated: the "Suma" below covers every matching result,
+    // not just the current page — but skips transactions marked "zbędny".
+    db
+      .select({ amount: transactions.amount })
+      .from(transactions)
+      .where(and(...conditions, eq(transactions.unnecessary, false)))
+      .all(),
+    db.select({ value: count() }).from(transactions).where(and(...conditions)).get(),
     db.select().from(categories).orderBy(asc(categories.sortOrder)).all(),
   ]);
 
   const categoryById = new Map(categoryRows.map((category) => [category.id, category]));
-  const total = rows.reduce((sum, row) => sum + row.amount, 0);
+  const total = sumRows.reduce((sum, row) => sum + row.amount, 0);
+  const totalCount = totalCountRow?.value ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const hasFilters = Boolean(q?.trim() || categoryId || from || to);
 
-  const exportParams = new URLSearchParams();
-  if (q?.trim()) exportParams.set("q", q.trim());
-  if (categoryId) exportParams.set("category_id", categoryId);
-  if (from) exportParams.set("from", from);
-  if (to) exportParams.set("to", to);
-  const exportHref = `/historia/eksport${exportParams.size > 0 ? `?${exportParams.toString()}` : ""}`;
+  const baseParams = new URLSearchParams();
+  if (q?.trim()) baseParams.set("q", q.trim());
+  if (categoryId) baseParams.set("category_id", categoryId);
+  if (from) baseParams.set("from", from);
+  if (to) baseParams.set("to", to);
+
+  const exportHref = `/historia/eksport${baseParams.size > 0 ? `?${baseParams.toString()}` : ""}`;
+
+  const pageHref = (targetPage: number) => {
+    const params = new URLSearchParams(baseParams);
+    if (targetPage > 1) params.set("page", String(targetPage));
+    const qs = params.toString();
+    return `/historia${qs ? `?${qs}` : ""}`;
+  };
 
   return (
     <div className="flex flex-col gap-6 pt-2">
@@ -131,11 +153,13 @@ export default async function HistoryPage({
       <section>
         <div className="mb-2 flex items-center justify-between text-sm">
           <span className="text-neutral-500 dark:text-neutral-400">
-            {rows.length} {rows.length === 1 ? "wynik" : "wyników"}
-            {rows.length === RESULT_LIMIT ? " (pokazano pierwsze " + RESULT_LIMIT + ")" : ""}
+            {totalCount} {totalCount === 1 ? "wynik" : "wyników"}
           </span>
           <span className="font-medium text-neutral-900 dark:text-neutral-100">Suma: {formatPln(total)}</span>
         </div>
+        <p className="mb-3 text-xs text-neutral-400 dark:text-neutral-500">
+          Suma pomija wydatki oznaczone jako zbędne.
+        </p>
 
         {rows.length > 0 && (
           <a href={exportHref} className="mb-3 inline-block text-xs text-neutral-500 dark:text-neutral-400 underline">
@@ -152,31 +176,79 @@ export default async function HistoryPage({
               return (
                 <li key={transaction.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <div className="min-w-0">
-                    <p className="truncate text-neutral-900 dark:text-neutral-100">{transactionLabel(transaction, category)}</p>
+                    <p
+                      className={`truncate ${
+                        transaction.unnecessary
+                          ? "text-neutral-400 line-through dark:text-neutral-500"
+                          : "text-neutral-900 dark:text-neutral-100"
+                      }`}
+                    >
+                      {transactionLabel(transaction, category)}
+                    </p>
                     <p className="text-xs text-neutral-400 dark:text-neutral-500">
                       {new Date(transaction.occurredOn).toLocaleDateString("pl-PL")}
                       {category ? ` · ${category.name}` : ""}
+                      {transaction.unnecessary ? " · zbędny" : ""}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <span className="font-medium text-neutral-900 dark:text-neutral-100">{formatPln(transaction.amount)}</span>
-                    <Link href={`/historia/${transaction.id}/edytuj`} className="text-xs font-medium text-neutral-600 dark:text-neutral-300 underline">
-                      Edytuj
-                    </Link>
-                    <form action={deleteTransaction}>
-                      <input type="hidden" name="id" value={transaction.id} />
-                      <ConfirmButton
-                        confirmMessage="Usunąć ten wydatek?"
-                        className="text-xs font-medium text-red-600 dark:text-red-400"
-                      >
-                        Usuń
-                      </ConfirmButton>
-                    </form>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <span
+                      className={
+                        transaction.unnecessary
+                          ? "font-medium text-neutral-400 line-through dark:text-neutral-500"
+                          : "font-medium text-neutral-900 dark:text-neutral-100"
+                      }
+                    >
+                      {formatPln(transaction.amount)}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <form action={toggleUnnecessary}>
+                        <input type="hidden" name="id" value={transaction.id} />
+                        <input type="hidden" name="next" value={transaction.unnecessary ? "0" : "1"} />
+                        <button type="submit" className="text-xs font-medium text-neutral-500 dark:text-neutral-400 underline">
+                          {transaction.unnecessary ? "Cofnij" : "Zbędny"}
+                        </button>
+                      </form>
+                      <Link href={`/historia/${transaction.id}/edytuj`} className="text-xs font-medium text-neutral-600 dark:text-neutral-300 underline">
+                        Edytuj
+                      </Link>
+                      <form action={deleteTransaction}>
+                        <input type="hidden" name="id" value={transaction.id} />
+                        <ConfirmButton
+                          confirmMessage="Usunąć ten wydatek?"
+                          className="text-xs font-medium text-red-600 dark:text-red-400"
+                        >
+                          Usuń
+                        </ConfirmButton>
+                      </form>
+                    </div>
                   </div>
                 </li>
               );
             })}
           </ul>
+        )}
+
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between text-sm">
+            {page > 1 ? (
+              <Link href={pageHref(page - 1)} className="text-neutral-700 dark:text-neutral-300 underline">
+                Poprzednia
+              </Link>
+            ) : (
+              <span />
+            )}
+            <span className="text-xs text-neutral-400 dark:text-neutral-500">
+              Strona {page} z {totalPages}
+            </span>
+            {page < totalPages ? (
+              <Link href={pageHref(page + 1)} className="text-neutral-700 dark:text-neutral-300 underline">
+                Następna
+              </Link>
+            ) : (
+              <span />
+            )}
+          </div>
         )}
       </section>
     </div>

@@ -39,6 +39,7 @@ export default async function DashboardPage() {
         and(
           eq(transactions.householdId, household.id),
           eq(transactions.type, "expense"),
+          eq(transactions.unnecessary, false),
           gte(transactions.occurredOn, periodStart),
           lte(transactions.occurredOn, periodEnd),
         ),

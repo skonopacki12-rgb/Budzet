@@ -6,14 +6,15 @@ import { getDb } from "@/lib/db";
 import { getActiveHousehold } from "@/lib/household";
 import { monthPeriod, formatPln } from "@/lib/date";
 import { budgets, categories, monthlyBudgets, transactions } from "@/db/schema";
-import { saveBudgets } from "./actions";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { copyBudgetsFromPreviousMonth, saveBudgets } from "./actions";
 
 export default async function BudgetPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; copied?: string; copy_empty?: string }>;
 }) {
-  const { saved } = await searchParams;
+  const { saved, copied, copy_empty: copyEmpty } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -42,6 +43,7 @@ export default async function BudgetPage({
         and(
           eq(transactions.householdId, household.id),
           eq(transactions.type, "expense"),
+          eq(transactions.unnecessary, false),
           gte(transactions.occurredOn, periodStart),
         ),
       )
@@ -79,6 +81,25 @@ export default async function BudgetPage({
       {saved && (
         <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">Limity zapisane.</div>
       )}
+      {copied && (
+        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
+          Limity przepisane z poprzedniego miesiąca.
+        </div>
+      )}
+      {copyEmpty && (
+        <div className="rounded-xl bg-neutral-100 dark:bg-neutral-800 px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
+          Poprzedni miesiąc nie miał ustawionych żadnych limitów.
+        </div>
+      )}
+
+      <form action={copyBudgetsFromPreviousMonth}>
+        <ConfirmButton
+          confirmMessage="Nadpisać obecne limity wartościami z poprzedniego miesiąca?"
+          className="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2.5 text-sm font-medium text-neutral-700 dark:text-neutral-300"
+        >
+          Skopiuj limity z poprzedniego miesiąca
+        </ConfirmButton>
+      </form>
 
       <form action={saveBudgets} className="flex flex-col gap-5">
         <label className="flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
